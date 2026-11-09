@@ -32,8 +32,10 @@ label{font-size:13px;color:var(--mut);display:block;margin:10px 0 4px}
 .ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--mut);font-weight:500;font-size:12px}
 tr.cur td{background:#22303f}tr.test td:first-child{color:var(--warn);font-weight:700}
-.set{display:grid;grid-template-columns:26px 1fr 1fr 74px;gap:6px;align-items:center;margin:6px 0}
-.set .n{color:var(--mut);font-size:13px;text-align:center}.set.done input{border-color:var(--ok);color:var(--mut)}
+.set{display:grid;grid-template-columns:32px 1fr 64px 56px;gap:6px;align-items:center;margin:6px 0}
+.stp{display:grid;grid-template-columns:38px 1fr 38px;gap:4px}.stp .btn{padding:9px 0;font-size:18px;line-height:1}.stp select{text-align:center;text-align-last:center;padding:9px 2px;-webkit-appearance:none;appearance:none}
+.set.wu .n{font-style:italic}.set.top .n{color:var(--lift);font-weight:700}.set.done select{border-color:var(--ok);color:var(--mut)}
+.set .n{color:var(--mut);font-size:12px;text-align:center}.set.done input{border-color:var(--ok);color:var(--mut)}
 .set .btn{padding:9px 0}.set.done .btn{background:var(--ok);border-color:var(--ok);color:#06121f}
 .rate{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}.rate button{padding:10px 0;border-radius:8px;border:1px solid var(--line);background:var(--card2);color:var(--tx);font-size:15px;font-family:inherit}.rate button.on{background:var(--tx);color:var(--bg)}
 #timer{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 64px);background:#1d2c3e;border:1px solid var(--lift);border-radius:14px;padding:10px 12px;display:none;align-items:center;gap:8px;z-index:7;max-width:620px;margin:0 auto}
@@ -61,7 +63,7 @@ ul{margin:6px 0;padding-left:20px}li{margin:3px 0;font-size:14px}
 <script>
 "use strict";
 const KEY='tracker-v2';
-const DEF={settings:{start:'2026-11-09',benchStart:70,flyStep:2.5,machineStep:5,restBench:150,restFly:60,restMachine:90,kcalStart:2650,startWeight:100,goalWeight:94,proteinPortions:6,proteinG:30},gym:[],runs:[],weights:[],protein:{},moves:{},active:null,timer:null};
+const DEF={settings:{start:'2026-11-09',topStart:80,restWarm:60,flyStep:2.5,machineStep:5,restBench:150,restFly:60,restMachine:90,kcalStart:2650,startWeight:100,goalWeight:94,proteinPortions:6,proteinG:30},gym:[],runs:[],weights:[],protein:{},moves:{},active:null,timer:null};
 let S=load();
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s)return{...JSON.parse(JSON.stringify(DEF)),...s,settings:{...DEF.settings,...s.settings}}}catch(e){}return JSON.parse(JSON.stringify(DEF))}
 function save(){localStorage.setItem(KEY,JSON.stringify(S))}
@@ -87,7 +89,7 @@ const interp=(pts,w)=>{if(w<=pts[0][0])return pts[0][1];for(let i=1;i<pts.length
 const pill=(ok,t)=>`<span class="pill ${ok===true?'ok':ok===false?'warn':''}">${t}</span>`;
 
 /* ---------- plan ---------- */
-const T10=[[0,80],[5,90],[10,95],[15,100]],TW=[[0,70],[5,77.5],[10,85],[15,90]],T5K=[[0,1500],[5,1380],[10,1290],[15,1200]];
+const T10=[[0,80],[5,90],[10,95],[15,100]],T5K=[[0,1500],[5,1380],[10,1290],[15,1200]];
 const TEST=[5,10,15];
 const STEPS=[
  {t:'4 × 500 m',rest:'2 min walk',n:4},{t:'5 × 500 m',rest:'2 min walk',n:5},{t:'6 × 500 m',rest:'2 min walk',n:6},
@@ -100,33 +102,37 @@ function tuePlan(w){if(TEST.includes(w)){const t=interp(T5K,w);return{test:true,
 function satPlan(w){const v=SAT[w];return typeof v==='number'?{step:v,txt:STEPS[v].t+' at 4:00/km, '+STEPS[v].rest}:{txt:v,light:true}}
 const EX={bench:{n:'Bench press',rest:'restBench'},fly:{n:'Fly',rest:'restFly'},machine:{n:'Machine chest press',rest:'restMachine'}};
 function layout(type,w){const t=TEST.includes(w);
- if(type==='A')return t?[['bench',1,'10-rep max test: one all-out set of 10'],['fly',2,'12-15 reps'],['machine',2,'12-15 reps']]:[['bench',3,'10-12 reps, same weight all sets'],['fly',2,'12-15 reps'],['machine',2,'12-15 reps']];
- return t?[['fly',2,'12-15 reps, easy test week'],['machine',2,'10-15 reps, easy test week']]:[['bench',2,'Optional: 2 × 10, only if your back feels fine'],['fly',3,'12-15 reps'],['machine',3,'10-15 reps']]}
+ if(type==='A')return t?[['bench',1,'Warm-up 20 × 10, 60 × 4, then the 10-rep max test: one all-out set of 10'],['fly',2,'12-15 reps'],['machine',2,'12-15 reps']]:[['bench',3,'Warm-up 20 × 10, 60 × 4. Top set 1 × 8-10 at RPE 8-9, back-off 2 × 10-12 at RPE 7-8'],['fly',2,'12-15 reps'],['machine',2,'12-15 reps']];
+ return t?[['fly',2,'12-15 reps, easy test week'],['machine',2,'10-15 reps, easy test week']]:[['bench',2,'Optional: warm-up, then 2 × 10 at back-off weight, only if your back feels fine'],['fly',3,'12-15 reps'],['machine',3,'10-15 reps']]}
 
 /* ---------- strength logic ---------- */
 const gymDesc=()=>[...S.gym].sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
-const setsOf=(g,ex)=>g.sets.filter(s=>s.ex===ex&&s.w>0&&s.r>0);
+const setsOf=(g,ex)=>g.sets.filter(s=>s.ex===ex&&s.k!=='wu'&&s.w>0&&s.r>0);
+const rateOf=(g,ex)=>(g.rate?g.rate[ex]:g.rating)||0;
 const e10=(w,r)=>w*(30+r)/40;
+const est10=(g,s)=>{const rt=rateOf(g,'bench'),rir=(s.k==='top'||s.k==='test')&&rt?Math.max(0,Math.min(3,10-rt)):0;return e10(s.w,s.r+rir)};
+const boW=t=>r25(t*.9),wu2W=t=>Math.max(Math.min(60,r25(t*.8)),r25(t*.75));
+const topOf=g=>{const b=setsOf(g,'bench');return b.find(s=>s.k==='top')||b[0]};
 function benchPred(){
- const A=gymDesc().filter(g=>g.type==='A'&&!g.test&&setsOf(g,'bench').length);
- if(!A.length)return{w:S.settings.benchStart,why:'Start weight'};
- const ls=setsOf(A[0],'bench'),w=ls[0].w,rt=A[0].rating||0;
- if(A.length>1&&rt>=9&&(A[1].rating||0)>=9)return{w:r25(w*.95),why:'Rated 9+ twice in a row: −5%'};
- if(A.length>1&&ls[0].r<8&&(setsOf(A[1],'bench')[0]?.r??99)<8)return{w:r25(w*.95),why:'First set under 8 reps twice in a row: −5%'};
- if(ls.every(s=>s.r>=12)){if(rt>=8)return{w,why:`All sets 12+, but rated ${rt}: hold`};return{w:w+2.5,why:'All sets 12+ last time: +2.5 kg'}}
- return{w,why:'Not all sets at 12 yet: same weight'}}
+ const A=gymDesc().filter(g=>g.type==='A'&&!g.test&&g.sets.some(s=>s.k==='top'&&s.w>0&&s.r>0));
+ if(!A.length)return{w:+S.settings.topStart||80,why:'Top set start weight'};
+ const t=topOf(A[0]),rt=rateOf(A[0],'bench'),t1=A[1]&&topOf(A[1]),rt1=A[1]?rateOf(A[1],'bench'):0;
+ if(A[1]&&rt>=10&&rt1>=10)return{w:r25(t.w*.95),why:'Top set rated 10 twice in a row: −5%'};
+ if(A[1]&&t.r<8&&t1.r<8)return{w:r25(t.w*.95),why:'Top set under 8 reps twice in a row: −5%'};
+ if(t.r>=10){if(rt>=10)return{w:t.w,why:`Top set ${kg(t.w)} × ${t.r} but rated 10: hold`};return{w:t.w+2.5,why:`Top set ${kg(t.w)} × ${t.r}${rt?' at RPE '+rt:''}: +2.5 kg`}}
+ return{w:t.w,why:`Top set ${kg(t.w)} × ${t.r} last time: same weight until you get 10`}}
 function accPred(ex,n){
  const st=+S.settings[ex+'Step']||2.5,all=gymDesc().filter(g=>setsOf(g,ex).length);
  if(!all.length)return{ws:Array(n).fill(''),why:'No history yet. Pick a weight: heaviest set first, drop one pin per set.'};
- const ls=setsOf(all[0],ex),rt=all[0].rating||0,hard2=all.length>1&&rt>=9&&(all[1].rating||0)>=9;
+ const ls=setsOf(all[0],ex),rt=rateOf(all[0],ex),hard2=all.length>1&&rt>=9&&rateOf(all[1],ex)>=9;
  const why=hard2?'Rated 9+ twice in a row: one step down':rt>=8?`Rated ${rt} last time: no increases`:'Per set: 12+ reps up a step, 8-11 same, under 8 down';
  const ws=[];for(let i=0;i<n;i++){const s=ls[i];let w;
   if(!s)w=(i?ws[i-1]:ls[ls.length-1].w)-st;else{w=s.w;if(hard2)w-=st;else if(s.r>=12&&rt<8)w+=st;else if(s.r<8)w-=st}
   if(i)w=Math.min(w,ws[i-1]);ws.push(Math.max(0,+w.toFixed(2)))}
  return{ws,why}}
 function benchEst(days=42,until=today()){const from=addD(until,-days);let best=null;
- S.gym.forEach(g=>{if(g.date<from||g.date>until)return;setsOf(g,'bench').forEach(s=>{if(s.r<=15){const v=e10(s.w,s.r);if(!best||v>best.v)best={v,date:g.date}}})});return best}
-function strengthStatus(){const x=xNow(),est=benchEst(),t10=interp(T10,x),bp=benchPred(),tw=interp(TW,x);
+ S.gym.forEach(g=>{if(g.date<from||g.date>until)return;setsOf(g,'bench').forEach(s=>{if(s.r<=15){const v=est10(g,s);if(!best||v>best.v)best={v,date:g.date}}})});return best}
+function strengthStatus(){const x=xNow(),est=benchEst(),t10=interp(T10,x),bp=benchPred(),tw=t10;
  return{est,t10,bp,tw,on:est?est.v>=t10-1:null,wOn:bp.w>=r25(tw)-0.01}}
 
 /* ---------- cardio logic ---------- */
@@ -223,7 +229,7 @@ function pToday(){const wk=weekOf(today()),w=curWeek(),pre=wk<1,mon=addD(S.setti
  <div class="card"><h2>This week</h2>${rows.map(([o,key,n,t,tg])=>{const d=addD(mon,o);return`<div class="day ${d===td?'today':''}" onclick="go('${tg}')"><div class="chk ${dn[key]?'y':''}">${dn[key]?'✓':''}</div><div class="grow"><b>${n}</b> <select class="mv" onclick="event.stopPropagation()" onchange="moveS(${w},'${key}',this.value)">${[0,1,2,3,4,5,6].map(i=>`<option value="${i}" ${i===o?'selected':''}>${fmtD(addD(mon,i))}</option>`).join('')}</select><div class="sub sm">${t}</div></div></div>`}).join('')}${warns.map(x=>`<div class="warn sm" style="margin-top:6px">${x}</div>`).join('')}<div class="sub sm" style="margin-top:6px">Tap a date to move a session within this week.</div></div>
  <div class="card" onclick="go('strength')"><div class="row between"><h2 class="lift">Strength</h2>${ss.est?pill(ss.on,ss.on?'On track':'Behind'):pill(null,'No data')}</div>
   <div class="kpi"><div><div class="sub sm">Est. 10-rep max</div><div class="big">${ss.est?kg(ss.est.v):'-'} <span class="sub">/ ${kg(ss.t10)} kg</span></div></div>
-  <div><div class="sub sm">Next bench weight</div><div class="big">${kg(ss.bp.w)} <span class="sub">/ ${kg(r25(ss.tw))} kg</span></div></div></div>
+  <div><div class="sub sm">Next top set</div><div class="big">${kg(ss.bp.w)} <span class="sub">/ ${kg(r25(ss.tw))} kg</span></div></div></div>
   <div class="bar"><i style="width:${Math.min(100,((ss.est?.v||70)-70)/30*100)}%;background:var(--lift)"></i></div><div class="sub sm">Goal 10 × 100 kg</div></div>
  <div class="card" onclick="go('cardio')"><div class="row between"><h2 class="run">Cardio</h2>${cs.est?pill(cs.on,cs.on?'On track':'Behind'):pill(null,'No data')}</div>
   <div class="kpi"><div><div class="sub sm">Est. 5k</div><div class="big">${cs.est?mmss(cs.est.v):'-'} <span class="sub">/ ${mmss(cs.t)}</span></div></div>
@@ -234,60 +240,75 @@ function pToday(){const wk=weekOf(today()),w=curWeek(),pre=wk<1,mon=addD(S.setti
   <div><div class="sub sm">Daily target</div><div class="big" style="font-size:20px">${k.k} kcal</div></div></div><div style="margin-top:10px">${protW()}</div></div>`}
 
 /* ---------- Strength ---------- */
-function startSession(type){const w=curWeek(),test=TEST.includes(w),sets=[],why={};
- layout(type,w).forEach(([ex,n,hint])=>{let ws;
-  if(ex==='bench'){if(type==='A'&&test){const e=benchEst();ws=[r25(e?e.v:interp(T10,w))];why.bench=`Test target: ${kg(interp(T10,w))} kg × 10. Prefilled with your current estimate.`}
-   else{const b=benchPred();ws=Array(n).fill(type==='A'?b.w:b.w-5);why.bench=type==='A'?b.why:`Chest A weight minus 5 kg (${kg(b.w)} − 5)`}}
-  else{const a=accPred(ex,n);ws=a.ws;why[ex]=a.why}
-  ws.forEach((w,i)=>sets.push({ex,i,w,r:'',done:false,hint}))});
- S.active={id:uid(),type,date:today(),test,ts:Date.now(),sets,why,rating:null,note:''};save();unlockAudio();go('strength')}
+function startSession(type){const w=curWeek(),test=TEST.includes(w),sets=[],why={},desc={};
+ layout(type,w).forEach(([ex,n,hint])=>{desc[ex]=hint;
+  if(ex==='bench'){const b=benchPred();let top;
+   if(type==='A'&&test){const e=benchEst();top=r25(e?e.v:interp(T10,w));why.bench=`Test target: ${kg(interp(T10,w))} kg × 10. Prefilled with your current estimate.`}
+   else{top=b.w;why.bench=type==='A'?b.why:`Back-off weight: 90% of next top set (${kg(b.w)} kg)`}
+   sets.push({ex,k:'wu',w:20,r:10,hint:'10'},{ex,k:'wu',w:wu2W(top),r:4,hint:'4'});
+   if(type==='A'&&test)sets.push({ex,k:'test',w:top,r:'',hint:'10'});
+   else if(type==='A')sets.push({ex,k:'top',w:top,r:'',hint:'8-10'},{ex,k:'bo',w:boW(top),r:'',hint:'10-12'},{ex,k:'bo',w:boW(top),r:'',hint:'10-12'});
+   else for(let i=0;i<n;i++)sets.push({ex,k:'bo',w:boW(top),r:'',hint:'10'})}
+  else{const a=accPred(ex,n);why[ex]=a.why;a.ws.forEach(v=>sets.push({ex,w:v,r:'',hint}))}});
+ sets.forEach(s=>{s.done=false;s.i=sets.filter(x=>x.ex===s.ex).indexOf(s)});
+ S.active={id:uid(),type,date:today(),test,ts:Date.now(),sets,why,desc,rate:{},note:''};save();unlockAudio();go('strength')}
+const stepOf=ex=>ex==='bench'?2.5:+S.settings[ex+'Step']||2.5;
+function follow(k){const a=S.active,s=a.sets[k];if(s.k!=='top'&&s.k!=='test')return;
+ a.sets.forEach(x=>{if(x.ex!==s.ex||x.done)return;if(x.k==='bo'&&s.k==='top')x.w=boW(s.w);if(x.k==='wu'&&x.r===4)x.w=wu2W(s.w)})}
+function setW(k,v){const s=S.active.sets[k];s.w=Math.max(0,+(+v).toFixed(2));follow(k);save();render()}
+function stepW(k,d){const s=S.active.sets[k];setW(k,(+s.w||0)+d*stepOf(s.ex))}
 function setF(k,f,v){S.active.sets[k][f]=v===''?'':+String(v).replace(',','.');save()}
 function doneSet(k){const s=S.active.sets[k];
  if(s.done){s.done=false;save();render();return}
- const row=document.querySelector(`[data-k="${k}"]`),w=row.querySelector('.w').value,r=row.querySelector('.r').value;
- s.w=+String(w).replace(',','.');s.r=+r;if(!(s.r>0)){row.querySelector('.r').focus();return}
- s.done=true;save();const more=S.active.sets.some(x=>!x.done);if(more)startTimer(+S.settings[EX[s.ex].rest]);render()}
-function aRate(i){S.active.rating=i;save();render()}
+ const row=document.querySelector(`[data-k="${k}"]`),r=row.querySelector('.r').value;
+ s.r=+r;if(!(s.r>0)){row.querySelector('.r').focus();return}
+ s.done=true;save();const more=S.active.sets.some(x=>!x.done);if(more)startTimer(s.k==='wu'?+S.settings.restWarm||60:+S.settings[EX[s.ex].rest]);render()}
+function aRate(ex,i){S.active.rate=S.active.rate||{};S.active.rate[ex]=i;save();render()}
 function finishSession(){const a=S.active,done=a.sets.filter(s=>s.done&&s.w>0&&s.r>0);
  if(!done.length){if(confirm('No sets done. Discard session?')){S.active=null;stopTimer();render()}return}
- if(!a.rating&&!confirm('No rating yet. Save anyway?'))return;
- a.note=$('anote')?.value||'';S.gym.push({id:a.id,type:a.type,date:a.date,ts:a.ts,test:a.test,rating:a.rating,note:a.note,sets:done.map(({ex,i,w,r})=>({ex,i,w,r}))});
+ const exs=[...new Set(done.filter(s=>s.k!=='wu').map(s=>s.ex))],rate={};exs.forEach(e=>{if(a.rate?.[e])rate[e]=a.rate[e]});
+ const miss=exs.filter(e=>!rate[e]);if(miss.length&&!confirm('No effort rating for '+miss.map(e=>EX[e].n.toLowerCase()).join(', ')+'. Save anyway?'))return;
+ a.note=$('anote')?.value||'';S.gym.push({id:a.id,type:a.type,date:a.date,ts:a.ts,test:a.test,rate,note:a.note,sets:done.map(({ex,i,w,r,k})=>k?{ex,i,w,r,k}:{ex,i,w,r})});
  S.active=null;S.timer=null;save();render();scrollTo(0,0)}
 function discardSession(){if(confirm('Discard this session?')){S.active=null;S.timer=null;save();render()}}
-function pSession(){const a=S.active,w=weekOf(a.date),tw=r25(interp(TW,Math.max(0,xOf(a.date))));let h='',k=0;const groups={};
+const SL={wu:'WU',top:'Top',bo:'B/O',test:'Test'};
+function wSel(k,s){const st=stepOf(s.ex),cur=+s.w||0,o=[];for(let v=0;v<=Math.max(200,cur);v=+(v+st).toFixed(2))o.push(v);if(!o.includes(cur))o.push(cur),o.sort((x,y)=>x-y);
+ return`<div class="stp"><button class="btn" onclick="stepW(${k},-1)">−</button><select class="w" onchange="setW(${k},this.value)">${o.map(v=>`<option value="${v}" ${v===cur?'selected':''}>${kg(v)}</option>`).join('')}</select><button class="btn" onclick="stepW(${k},1)">+</button></div>`}
+function exRate(ex,cur){return`<label>Effort ${ex==='bench'?'on the top set ':''}(RPE) · 10 = nothing left</label><div class="rate">${[1,2,3,4,5,6,7,8,9,10].map(i=>`<button class="${cur===i?'on':''}" onclick="aRate('${ex}',${i})">${i}</button>`).join('')}</div>`}
+function pSession(){const a=S.active,w=weekOf(a.date),tw=r25(interp(T10,Math.max(0,xOf(a.date))));let h='';const groups={};a.rate=a.rate||{};
  a.sets.forEach((s,i)=>{(groups[s.ex]=groups[s.ex]||[]).push(i)});
- Object.entries(groups).forEach(([ex,idx])=>{const s0=a.sets[idx[0]];
-  const flag=ex==='bench'&&a.type==='A'&&!a.test&&s0.w<tw?`<div class="warn sm">Below the target working weight of ${kg(tw)} kg for this week</div>`:'';
+ Object.entries(groups).forEach(([ex,idx])=>{const s0=a.sets[idx[0]],top=idx.map(k=>a.sets[k]).find(s=>s.k==='top');
+  const flag=top&&top.w<tw?`<div class="warn sm">Top set below this week's target of ${kg(tw)} kg</div>`:'';let n=0;
   h+=`<div class="card"><div class="row between"><h2>${EX[ex].n}</h2><span class="sub sm">rest ${mmss(S.settings[EX[ex].rest])}</span></div>
-  <div class="sub sm">${esc(s0.hint)}</div><div class="sub sm" style="margin-top:3px">↳ ${esc(a.why[ex]||'')}</div>${flag}
-  <div class="set sub sm" style="margin-top:8px"><span></span><span>kg</span><span>reps</span><span></span></div>
-  ${idx.map((k,j)=>{const s=a.sets[k];return`<div class="set ${s.done?'done':''}" data-k="${k}"><span class="n">${j+1}</span>
-   <input class="w" inputmode="decimal" value="${s.w}" placeholder="kg" onchange="setF(${k},'w',this.value)">
-   <input class="r" inputmode="numeric" value="${s.r}" placeholder="${ex==='bench'&&a.test?'10':s.hint.match(/\d+-\d+/)?.[0]||''}" onchange="setF(${k},'r',this.value)">
-   <button class="btn" onclick="doneSet(${k})">${s.done?'✓':'Done'}</button></div>`}).join('')}</div>`});
- return `<h1>Chest ${a.type}${a.test?' · test week':''}</h1><div class="sub">Week ${w} · ${fmtD(a.date)} · stop 1-2 reps before failure${a.test&&a.type==='A'?' (except the test set)':''}</div>${h}
- <div class="card">${rateW(a.rating,'aRate')}<label>Note</label><textarea id="anote" placeholder="Back, shoulder, anything worth noting">${esc(a.note)}</textarea>
+  <div class="sub sm">${esc(a.desc?.[ex]??s0.hint)}</div><div class="sub sm" style="margin-top:3px">↳ ${esc(a.why[ex]||'')}</div>${flag}
+  <div class="set sub sm" style="margin-top:8px"><span></span><span style="text-align:center">kg</span><span>reps</span><span></span></div>
+  ${idx.map(k=>{const s=a.sets[k],lb=s.k?SL[s.k]:++n;return`<div class="set ${s.done?'done':''} ${s.k||''}" data-k="${k}"><span class="n">${lb}</span>
+   ${wSel(k,s)}
+   <input class="r" inputmode="numeric" value="${s.r}" placeholder="${s.hint.match(/\d+(-\d+)?/)?.[0]||''}" onchange="setF(${k},'r',this.value)">
+   <button class="btn" onclick="doneSet(${k})">${s.done?'✓':'Done'}</button></div>`}).join('')}${exRate(ex,a.rate[ex])}</div>`});
+ return `<h1>Chest ${a.type}${a.test?' · test week':''}</h1><div class="sub">Week ${w} · ${fmtD(a.date)}${a.test&&a.type==='A'?' · test set is all-out':''}</div>${h}
+ <div class="card"><label>Note</label><textarea id="anote" placeholder="Back, shoulder, anything worth noting">${esc(a.note)}</textarea>
  <button class="btn p full" onclick="finishSession()">Finish and save</button><button class="btn full" onclick="discardSession()">Discard</button></div>`}
 function delGym(id){if(confirm('Delete this session?')){S.gym=S.gym.filter(g=>g.id!==id);save();render()}}
 function pStrength(){if(S.active)return pSession();
  const w=curWeek(),ss=strengthStatus(),dn=weekDone(w),nextT=dn.A&&!dn.B?'B':'A',bp=benchPred(),fl=accPred('fly',nextT==='A'?2:3),mc=accPred('machine',nextT==='A'?2:3);
- const est=[],work=[];gymDesc().reverse().forEach(g=>{const b=setsOf(g,'bench');if(!b.length)return;est.push([xOf(g.date),Math.max(...b.filter(s=>s.r<=15).map(s=>e10(s.w,s.r)),0)]);if(g.type==='A'&&!g.test)work.push([xOf(g.date),b[0].w])});
- const byWeek=w=>{const g=S.gym.filter(x=>weekOf(x.date)===w&&x.type==='A');const b=g.flatMap(x=>setsOf(x,'bench'));return b.length?Math.max(...b.map(s=>e10(s.w,s.r))):null};
+ const est=[],work=[];gymDesc().reverse().forEach(g=>{const b=setsOf(g,'bench');if(!b.length)return;est.push([xOf(g.date),Math.max(...b.filter(s=>s.r<=15).map(s=>est10(g,s)),0)]);if(g.type==='A'&&!g.test)work.push([xOf(g.date),topOf(g).w])});
+ const byWeek=w=>{const g=S.gym.filter(x=>weekOf(x.date)===w&&x.type==='A');const b=g.flatMap(x=>setsOf(x,'bench'));return b.length?Math.max(...g.flatMap(x=>setsOf(x,'bench').map(s=>est10(x,s)))):null};
  return `<h1>Strength</h1><div class="sub">Goal: bench 100 kg × 10 by week 15</div>
  <div class="card"><div class="row between"><h2>Status</h2>${ss.est?pill(ss.on,ss.on?'On track':'Behind target'):''}</div>
  <div class="kpi"><div><div class="sub sm">Est. 10-rep max (6 wks)</div><div class="big">${ss.est?kg(ss.est.v):'-'}</div><div class="sub sm">Target now ${kg(ss.t10)} kg</div></div>
- <div><div class="sub sm">Next working weight</div><div class="big">${kg(bp.w)}</div><div class="sub sm">Target now ${kg(r25(ss.tw))} kg</div></div></div>
- ${chart({series:[{pts:T10,c:'#4ea1ff',dash:1},{pts:TW,c:'#8b9aab',dash:1},{pts:est,c:'#4ea1ff',dots:1},{pts:work,c:'#e8eef4',dots:1}],y0:60,y1:105,ticks:3})}
- ${leg([['#4ea1ff','Est. 10RM'],['#e8eef4','Working weight'],['#8b9aab','Dashed: targets']])}</div>
+ <div><div class="sub sm">Next top set</div><div class="big">${kg(bp.w)}</div><div class="sub sm">Target now ${kg(r25(ss.tw))} kg</div></div></div>
+ ${chart({series:[{pts:T10,c:'#4ea1ff',dash:1},{pts:est,c:'#4ea1ff',dots:1},{pts:work,c:'#e8eef4',dots:1}],y0:60,y1:105,ticks:3})}
+ ${leg([['#4ea1ff','Est. 10RM'],['#e8eef4','Top set'],['#4ea1ff','Dashed: target']])}</div>
  <div class="card"><h2>Next: Chest ${nextT}${TEST.includes(w)?' (test week)':''}</h2>
- <ul>${layout(nextT,w).map(([e,n,h])=>`<li><b>${EX[e].n}</b> ${n} sets: ${e==='bench'?(TEST.includes(w)&&nextT==='A'?'test set':kg(nextT==='A'?bp.w:bp.w-5)+' kg'):(e==='fly'?fl:mc).ws.map(v=>v===''?'?':kg(v)).join(' / ')+' kg'}<div class="sub sm">${esc(h)}</div></li>`).join('')}</ul>
+ <ul>${layout(nextT,w).map(([e,n,h])=>`<li><b>${EX[e].n}</b> ${n} sets: ${e==='bench'?(TEST.includes(w)&&nextT==='A'?'test set':nextT==='A'?kg(bp.w)+' / '+kg(boW(bp.w))+' / '+kg(boW(bp.w))+' kg':kg(boW(bp.w))+' kg'):(e==='fly'?fl:mc).ws.map(v=>v===''?'?':kg(v)).join(' / ')+' kg'}<div class="sub sm">${esc(h)}</div></li>`).join('')}</ul>
  <div class="row"><button class="btn p grow" onclick="startSession('A')">Start Chest A</button><button class="btn grow" onclick="startSession('B')">Start Chest B</button></div>
  <div class="sub sm" style="margin-top:8px">Weights are predictions from your history. You can change them in the session.</div></div>
- <div class="card"><h2>15-week bench targets</h2><table><tr><th>Wk</th><th>Working</th><th>10RM target</th><th>Your est.</th></tr>
- ${Array.from({length:15},(_,i)=>i+1).map(k=>{const e=byWeek(k),t=interp(T10,k);return`<tr class="${k===w?'cur':''} ${TEST.includes(k)?'test':''}"><td>${k}${TEST.includes(k)?' T':''}</td><td>${kg(r25(interp(TW,k-1)))}</td><td>${kg(t)}</td><td class="${e==null?'':e>=t-1?'ok':'warn'}">${e==null?'':kg(e)}</td></tr>`}).join('')}</table>
+ <div class="card"><h2>15-week bench targets</h2><table><tr><th>Wk</th><th>10RM target</th><th>Your est.</th></tr>
+ ${Array.from({length:15},(_,i)=>i+1).map(k=>{const e=byWeek(k),t=interp(T10,k);return`<tr class="${k===w?'cur':''} ${TEST.includes(k)?'test':''}"><td>${k}${TEST.includes(k)?' T':''}</td><td>${kg(t)}</td><td class="${e==null?'':e>=t-1?'ok':'warn'}">${e==null?'':kg(e)}</td></tr>`}).join('')}</table>
  <div class="sub sm" style="margin-top:6px">T = test week: Chest A is an all-out 10-rep set, Chest B is easy at half the sets.</div></div>
- <div class="card"><h2>History</h2>${gymDesc().map(g=>`<div class="it"><div class="row between"><b>${fmtD(g.date)} · Chest ${g.type}${g.test?' (test)':''}</b><span>${g.rating?'Rated '+g.rating:''}<button class="x" onclick="delGym('${g.id}')">✕</button></span></div>
- ${['bench','fly','machine'].map(e=>{const s=setsOf(g,e);return s.length?`<div class="sub sm">${EX[e].n}: ${s.map(x=>kg(x.w)+'×'+x.r).join(', ')}</div>`:''}).join('')}${g.note?`<div class="sub sm"><i>${esc(g.note)}</i></div>`:''}</div>`).join('')||'<div class="sub">No sessions yet.</div>'}</div>`}
+ <div class="card"><h2>History</h2>${gymDesc().map(g=>`<div class="it"><div class="row between"><b>${fmtD(g.date)} · Chest ${g.type}${g.test?' (test)':''}</b><span>${!g.rate&&g.rating?'Rated '+g.rating:''}<button class="x" onclick="delGym('${g.id}')">✕</button></span></div>
+ ${['bench','fly','machine'].map(e=>{const s=setsOf(g,e);const rt=g.rate?.[e];return s.length?`<div class="sub sm">${EX[e].n}${rt?' (RPE '+rt+')':''}: ${s.map(x=>(x.k==='top'?'top ':'')+kg(x.w)+'×'+x.r).join(', ')}</div>`:''}).join('')}${g.note?`<div class="sub sm"><i>${esc(g.note)}</i></div>`:''}</div>`).join('')||'<div class="sub">No sessions yet.</div>'}</div>`}
 
 /* ---------- Cardio ---------- */
 let F=null,IMP=null;
@@ -379,7 +400,7 @@ function pWeight(){const k=kcal(),ws=wAsc(),sw=+S.settings.startWeight,gw=+S.set
  ${k.log.length?`<h3>Calorie adjustments</h3>${k.log.slice(-5).reverse().map(l=>`<div class="sub sm">${l.w<1?'Before start':'Week '+l.w}: ${l.rate>=0?'−':'+'}${Math.abs(l.rate).toFixed(2)} kg/wk → ${l.d?(l.d>0?'+':'')+l.d+' kcal, ':''}${l.k} kcal</div>`).join('')}`:''}</div>`}
 
 /* ---------- More ---------- */
-const SET=[['start','Week 1 starts (Monday)','date'],['benchStart','Bench start weight (kg)'],['flyStep','Fly weight step (kg)'],['machineStep','Machine press step (kg)'],['restBench','Rest bench (s)'],['restFly','Rest fly (s)'],['restMachine','Rest machine (s)'],['kcalStart','Starting kcal'],['startWeight','Start body weight (kg)'],['goalWeight','Goal body weight (kg)'],['proteinPortions','Protein portions per day'],['proteinG','Grams per portion (estimate)']];
+const SET=[['start','Week 1 starts (Monday)','date'],['topStart','Bench top set start (kg)'],['flyStep','Fly weight step (kg)'],['machineStep','Machine press step (kg)'],['restWarm','Rest after warm-up set (s)'],['restBench','Rest bench (s)'],['restFly','Rest fly (s)'],['restMachine','Rest machine (s)'],['kcalStart','Starting kcal'],['startWeight','Start body weight (kg)'],['goalWeight','Goal body weight (kg)'],['proteinPortions','Protein portions per day'],['proteinG','Grams per portion (estimate)']];
 function saveSet(){SET.forEach(([k,,t])=>{const v=$('s_'+k).value;S.settings[k]=t==='date'?v:+String(v).replace(',','.')});save();alert('Saved');render()}
 async function exportData(){const txt=JSON.stringify(S,null,1),name=`training-backup-${today()}.json`;
  try{const f=new File([txt],name,{type:'application/json'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){if(e.name==='AbortError')return}
@@ -400,11 +421,12 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <div class="card"><h2>Settings</h2>${SET.map(([k,n,t])=>`<label>${n}</label><input id="s_${k}" ${t==='date'?'type="date"':'inputmode="decimal"'} value="${S.settings[k]}">`).join('')}<button class="btn p full" onclick="saveSet()">Save settings</button></div>
  <div class="card"><h2>The plan</h2>
  <h3 class="lift">Strength · default Mon and Thu</h3><ul>
- <li>Chest A: bench 3 × 10-12 (same weight all sets), fly 2 × 12-15, machine press 2 × 12-15.</li>
- <li>Chest B: optional bench 2 × 10 at A weight minus 5 kg, fly 3 × 12-15, machine press 3 × 10-15.</li>
+ <li>Bench warm-up: 20 × 10, 60 × 4 (about 75% of the top set once it passes 80 kg).</li>
+ <li>Chest A: bench top set 1 × 8-10 at RPE 8-9, then 2 back-off sets × 10-12 at 90% (RPE 7-8). Fly 2 × 12-15, machine press 2 × 12-15.</li>
+ <li>Chest B: optional bench 2 × 10 at back-off weight, fly 3 × 12-15, machine press 3 × 10-15.</li>
  <li>Stop 1-2 reps before failure. Fly and machine: heaviest set first, drop one pin per set.</li>
- <li>Bench: all sets 12+ means +2.5 kg next time. First set under 8 twice in a row means −5%.</li>
- <li>Rating 8 holds the weight. 9-10 twice in a row means −5% (bench) or one step down.</li>
+ <li>Bench: top set 10+ reps at RPE 9 or easier means +2.5 kg next time. Top set under 8 or rated 10, twice in a row, means −5%.</li>
+ <li>Rate effort (RPE) per exercise. Bench: rate the top set. Fly and machine: rating 8 holds the weight, 9-10 twice in a row means one step down.</li>
  <li>Test weeks 5, 10, 15: Chest A is an all-out 10-rep set, Chest B is easy at half the sets.</li>
  <li>No triceps isolation unless the lockout stalls.</li><li>Move sessions on the Today screen. Keep at least 2 days between Chest A and B, and between the two runs.</li></ul>
  <h3 class="run">Running · default Tue and Sat</h3><ul>
