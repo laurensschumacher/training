@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="20 / 100">
@@ -49,7 +49,9 @@ svg{display:block;width:100%;height:auto}svg text{fill:var(--mut);font-size:10px
 .leg{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:6px}.leg span:before{content:"";display:inline-block;width:12px;height:3px;margin-right:5px;vertical-align:middle;background:var(--c)}
 .pick{display:block;width:100%;text-align:left;margin:6px 0}
 ul{margin:6px 0;padding-left:20px}li{margin:3px 0;font-size:14px}
-.lift{color:var(--lift)}.run{color:var(--run)}.wt{color:var(--wt)}
+.lift{color:var(--lift)}
+.mv{width:auto;padding:3px 6px;font-size:13px;background:transparent;color:var(--mut);margin-left:4px}
+.pd{display:inline-flex;width:22px;height:22px;border-radius:50%;border:2px solid var(--wt);margin:3px 3px 0 0;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1a0b24}.pd.f{background:var(--wt)}.run{color:var(--run)}.wt{color:var(--wt)}
 </style>
 </head>
 <body>
@@ -59,7 +61,7 @@ ul{margin:6px 0;padding-left:20px}li{margin:3px 0;font-size:14px}
 <script>
 "use strict";
 const KEY='tracker-v2';
-const DEF={settings:{start:'2026-11-09',benchStart:70,flyStep:2.5,machineStep:5,restBench:150,restFly:60,restMachine:90,kcalStart:2650,startWeight:100,goalWeight:94},gym:[],runs:[],weights:[],active:null,timer:null};
+const DEF={settings:{start:'2026-11-09',benchStart:70,flyStep:2.5,machineStep:5,restBench:150,restFly:60,restMachine:90,kcalStart:2650,startWeight:100,goalWeight:94,proteinPortions:6,proteinG:30},gym:[],runs:[],weights:[],protein:{},moves:{},active:null,timer:null};
 let S=load();
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s)return{...JSON.parse(JSON.stringify(DEF)),...s,settings:{...DEF.settings,...s.settings}}}catch(e){}return JSON.parse(JSON.stringify(DEF))}
 function save(){localStorage.setItem(KEY,JSON.stringify(S))}
@@ -92,7 +94,7 @@ const STEPS=[
  {t:'4 × 800 m',rest:'2 min walk',n:4},{t:'5 × 800 m',rest:'2 min walk',n:5},{t:'4 × 1 km',rest:'2 min walk',n:4},
  {t:'5 × 1 km',rest:'2 min walk',n:5},{t:'5 × 1 km',rest:'90 s jog',n:5},{t:'3 × 1.6 km',rest:'2 min jog',n:3},
  {t:'2 × 2 km + 1 km',rest:'2-3 min jog',n:3},{t:'2 × 2.5 km',rest:'2-3 min jog',n:2}];
-const SAT={1:0,2:1,3:2,4:3,5:'4 × 500 m light, 2 min walk',6:4,7:5,8:6,9:7,10:'4 × 800 m light, 2 min walk',11:8,12:9,13:10,14:'4 × 800 m taper, 2 min walk',15:'Rest (test was Tuesday)'};
+const SAT={1:0,2:1,3:2,4:3,5:'4 × 500 m light, 2 min walk',6:4,7:5,8:6,9:7,10:'4 × 800 m light, 2 min walk',11:8,12:9,13:10,14:'4 × 800 m taper, 2 min walk',15:'Rest (5k test this week)'};
 function tuePlan(w){if(TEST.includes(w)){const t=interp(T5K,w);return{test:true,txt:'5k test · target '+mmss(t),target:t}}
  if(w===14)return{txt:'3 km at 4:10/km (taper)',pace:250,km:3};const p=312-5*(w-1);return{txt:'5 km at '+mmss(p)+'/km',pace:p,km:5}}
 function satPlan(w){const v=SAT[w];return typeof v==='number'?{step:v,txt:STEPS[v].t+' at 4:00/km, '+STEPS[v].rest}:{txt:v,light:true}}
@@ -150,14 +152,29 @@ function cardioStatus(){const x=xNow(),est=runEst(),t=interp(T5K,x),ad=satAdapti
 
 /* ---------- weight logic ---------- */
 const wAsc=()=>[...S.weights].sort((a,b)=>a.date.localeCompare(b.date));
-function kcal(){const ws=wAsc();let k=+S.settings.kcalStart,prev=ws[0],rate=null,log=[];
- for(let i=1;i<ws.length;i++){const b=ws[i],d=(day(b.date)-day(prev.date))/864e5;if(d<5)continue;
-  rate=(prev.kg-b.kg)/(d/7);const o=k;if(rate<.25)k-=150;else if(rate>.75)k+=150;k=Math.min(3200,Math.max(2200,k));log.push({date:b.date,rate,k,d:k-o});prev=b}
+function wWeeks(){const m={};S.weights.forEach(x=>{const k=weekOf(x.date);(m[k]=m[k]||[]).push(x.kg)});
+ return Object.keys(m).map(Number).sort((a,b)=>a-b).map(k=>({w:k,avg:m[k].reduce((a,b)=>a+b)/m[k].length,n:m[k].length}))}
+function kcal(){const ws=wAsc(),wk=wWeeks().filter(x=>x.w<weekOf(today()));let k=+S.settings.kcalStart,rate=null,log=[];
+ for(let i=1;i<wk.length;i++){const a=wk[i-1],b=wk[i];
+  rate=(a.avg-b.avg)/(b.w-a.w);const o=k;if(rate<.25)k-=150;else if(rate>.75)k+=150;k=Math.min(3200,Math.max(2200,k));log.push({w:b.w,rate,k,d:k-o})}
  const cur=ws.length?ws[ws.length-1].kg:+S.settings.startWeight,goal=cur<=+S.settings.goalWeight;
  if(goal)k=+S.settings.kcalStart+500;
  return{k,rate,log,cur,goal,prot:Math.round(cur*2/5)*5}}
-function stallWarn(){const ws=wAsc();if(ws.length<3)return false;const now=benchEst(),then=benchEst(42,addD(today(),-21));
- return now&&then&&now.v<=then.v&&ws[ws.length-1].kg<ws[Math.max(0,ws.length-4)].kg}
+function stallWarn(){const wk=wWeeks();if(wk.length<3)return false;const now=benchEst(),then=benchEst(42,addD(today(),-21));
+ return now&&then&&now.v<=then.v&&wk[wk.length-1].avg<wk[Math.max(0,wk.length-4)].avg}
+/* protein */
+const pDay=d=>(S.protein||{})[d]||[];
+function addP(t,ev){ev&&ev.stopPropagation();S.protein=S.protein||{};(S.protein[today()]=S.protein[today()]||[]).push(t);save();render()}
+function undoP(ev){ev&&ev.stopPropagation();pDay(today()).pop();save();render()}
+function protW(){const a=pDay(today()),tg=+S.settings.proteinPortions,n=a.length;
+ return `<div class="row between"><b>Protein today: ${n} / ${tg}</b>${n>=tg?pill(true,'done'):''}</div>
+ <div>${Array.from({length:Math.max(n,tg)},(_,i)=>`<span class="pd ${i<n?'f':''}">${a[i]==='s'?'S':''}</span>`).join('')}</div>
+ <div class="row" style="margin-top:8px"><button class="btn w grow" onclick="addP('p',event)">+ Portion</button><button class="btn w grow" onclick="addP('s',event)">+ Shake</button><button class="btn s" onclick="undoP(event)">Undo</button></div>`}
+/* schedule */
+const SLOT={A:0,tue:1,B:3,sat:5};
+const slot=(w,k)=>(S.moves||{})[w+':'+k]??SLOT[k];
+const slotDate=(w,k)=>addD(S.settings.start,(w-1)*7+slot(w,k));
+function moveS(w,k,v){S.moves=S.moves||{};S.moves[w+':'+k]=+v;save();render()}
 
 /* ---------- timer ---------- */
 let AC,WL;
@@ -197,12 +214,13 @@ function render(){$('nav').innerHTML=TABS.map(([k,i,n])=>`<button class="${tab==
 /* ---------- Today ---------- */
 function pToday(){const wk=weekOf(today()),w=curWeek(),pre=wk<1,mon=addD(S.settings.start,(w-1)*7),dn=weekDone(w),td=today();
  const tp=tuePlan(w),sp=satPlan(w),lay=t=>layout(t,w).map(([e,n])=>n+' × '+EX[e].n.toLowerCase().replace('machine chest press','machine')).join(', ');
- const rows=[[0,'A','Chest A',TEST.includes(w)?'Bench 10RM test, then fly and machine':lay('A'),'strength'],[1,'tue','Run',tp.txt,'cardio'],[3,'B','Chest B',lay('B'),'strength'],[5,'sat','Intervals',sp.txt,'cardio']];
+ const rows=[[slot(w,'A'),'A','Chest A',TEST.includes(w)?'Bench 10RM test, then fly and machine':lay('A'),'strength'],[slot(w,'tue'),'tue',tp.test?'5k test':'Steady run',tp.txt,'cardio'],[slot(w,'B'),'B','Chest B',lay('B'),'strength'],[slot(w,'sat'),'sat','Intervals',sp.txt,'cardio']].sort((a,b)=>a[0]-b[0]);
+ const gap=(a,b)=>Math.abs(slot(w,a)-slot(w,b)),warns=[gap('A','B')<2&&'Chest A and B are less than 2 days apart.',gap('tue','sat')<2&&'The two hard runs are on back-to-back days.'].filter(Boolean);
  const ss=strengthStatus(),cs=cardioStatus(),k=kcal();
  return `<h1>${pre?'Starts '+fmtD(S.settings.start):'Week '+w+' of 15'}</h1>
  <div class="sub">${pre?(n=>`${n} day${n>1?'s':''} to go. Week 1 shown below.`)(Math.round((day(S.settings.start)-day(td))/864e5)):fmtD(mon)+' to '+fmtD(addD(mon,6))}${TEST.includes(w)?' · <b class="warn">Test week</b>':''}</div>
  ${S.active?`<div class="card"><div class="row between"><b>Session in progress: Chest ${S.active.type}</b><button class="btn p s" onclick="go('strength')">Open</button></div></div>`:''}
- <div class="card"><h2>This week</h2>${rows.map(([o,key,n,t,tg])=>{const d=addD(mon,o);return`<div class="day ${d===td?'today':''}" onclick="go('${tg}')"><div class="chk ${dn[key]?'y':''}">${dn[key]?'✓':''}</div><div class="grow"><b>${n}</b> <span class="sub sm">${fmtD(d)}</span><div class="sub sm">${t}</div></div></div>`}).join('')}</div>
+ <div class="card"><h2>This week</h2>${rows.map(([o,key,n,t,tg])=>{const d=addD(mon,o);return`<div class="day ${d===td?'today':''}" onclick="go('${tg}')"><div class="chk ${dn[key]?'y':''}">${dn[key]?'✓':''}</div><div class="grow"><b>${n}</b> <select class="mv" onclick="event.stopPropagation()" onchange="moveS(${w},'${key}',this.value)">${[0,1,2,3,4,5,6].map(i=>`<option value="${i}" ${i===o?'selected':''}>${fmtD(addD(mon,i))}</option>`).join('')}</select><div class="sub sm">${t}</div></div></div>`}).join('')}${warns.map(x=>`<div class="warn sm" style="margin-top:6px">${x}</div>`).join('')}<div class="sub sm" style="margin-top:6px">Tap a date to move a session within this week.</div></div>
  <div class="card" onclick="go('strength')"><div class="row between"><h2 class="lift">Strength</h2>${ss.est?pill(ss.on,ss.on?'On track':'Behind'):pill(null,'No data')}</div>
   <div class="kpi"><div><div class="sub sm">Est. 10-rep max</div><div class="big">${ss.est?kg(ss.est.v):'-'} <span class="sub">/ ${kg(ss.t10)} kg</span></div></div>
   <div><div class="sub sm">Next bench weight</div><div class="big">${kg(ss.bp.w)} <span class="sub">/ ${kg(r25(ss.tw))} kg</span></div></div></div>
@@ -211,9 +229,9 @@ function pToday(){const wk=weekOf(today()),w=curWeek(),pre=wk<1,mon=addD(S.setti
   <div class="kpi"><div><div class="sub sm">Est. 5k</div><div class="big">${cs.est?mmss(cs.est.v):'-'} <span class="sub">/ ${mmss(cs.t)}</span></div></div>
   <div><div class="sub sm">Intervals</div><div class="big" style="font-size:18px">${cs.behind>0?`<span class="warn">${cs.behind} step${cs.behind>1?'s':''} behind</span>`:'<span class="ok">On plan</span>'}</div></div></div>
   <div class="bar"><i style="width:${Math.min(100,Math.max(0,(1500-(cs.est?.v||1500))/300*100))}%;background:var(--run)"></i></div><div class="sub sm">Goal sub-20:00</div></div>
- <div class="card" onclick="go('weight')"><div class="row between"><h2 class="wt">Weight & nutrition</h2>${k.rate==null?pill(null,'Weigh in weekly'):pill(k.rate>=.25&&k.rate<=.75,(k.rate>=0?'−':'+')+Math.abs(k.rate).toFixed(2)+' kg/wk')}</div>
+ <div class="card" onclick="go('weight')"><div class="row between"><h2 class="wt">Weight & nutrition</h2>${k.rate==null?pill(null,'Weigh in'):pill(k.rate>=.25&&k.rate<=.75,(k.rate>=0?'−':'+')+Math.abs(k.rate).toFixed(2)+' kg/wk')}</div>
   <div class="kpi"><div><div class="sub sm">Weight</div><div class="big">${kg(k.cur)} <span class="sub">kg</span></div></div>
-  <div><div class="sub sm">Daily target</div><div class="big" style="font-size:20px">${k.k} kcal<br><span class="sub">${k.prot} g protein</span></div></div></div></div>`}
+  <div><div class="sub sm">Daily target</div><div class="big" style="font-size:20px">${k.k} kcal</div></div></div><div style="margin-top:10px">${protW()}</div></div>`}
 
 /* ---------- Strength ---------- */
 function startSession(type){const w=curWeek(),test=TEST.includes(w),sets=[],why={};
@@ -274,7 +292,7 @@ function pStrength(){if(S.active)return pSession();
 /* ---------- Cardio ---------- */
 let F=null,IMP=null;
 function newRunForm(){const w=curWeek(),dn=weekDone(w),dow=day(today()).getDay(),tp=tuePlan(w);
- let kind=dow===6||dow===0||(dn.tue&&!dn.sat)?'interval':tp.test?'test':'steady';const sp=satPlan(w);
+ let kind=slotDate(w,'sat')===today()||(dn.tue&&!dn.sat)?'interval':tp.test?'test':'steady';const sp=satPlan(w);
  F={kind,date:today(),km:kind==='interval'?'':(tp.km||5),time:'',step:sp.light?-1:intNext().s,reps:'',held:true,knee:'',rating:null,note:''}}
 function rf(k,v){F[k]=v;if(k==='kind'||k==='step'||k==='held')render()}
 function rRate(i){F.rating=i;render()}
@@ -325,7 +343,7 @@ function pCardio(){if(!F)newRunForm();const w=curWeek(),tp=tuePlan(w),sp=satPlan
  <label>Knee pain during or after (0-10, optional)</label><input inputmode="numeric" value="${F.knee}" oninput="rf('knee',this.value)">
  ${rateW(F.rating,'rRate')}<label>Note</label><textarea oninput="rf('note',this.value)">${esc(F.note)}</textarea>
  <button class="btn r full" onclick="saveRun()">Save run</button></div>
- <div class="card"><h2>15-week plan</h2><table><tr><th>Wk</th><th>Tue</th><th>Sat · 4:00/km</th></tr>
+ <div class="card"><h2>15-week plan</h2><table><tr><th>Wk</th><th>Steady</th><th>Intervals · 4:00/km</th></tr>
  ${Array.from({length:15},(_,i)=>i+1).map(k=>{const t=tuePlan(k),s=satPlan(k),d=weekDone(k),a=ad[k];
   return`<tr class="${k===w?'cur':''} ${TEST.includes(k)?'test':''}"><td>${k}</td><td>${d.tue?'✓ ':''}${t.test?'<b>5k test</b> '+mmss(t.target):k===14?'3 km @ 4:10':'5k @ '+mmss(t.pace)}</td>
   <td>${d.sat?'✓ ':''}${s.light?esc(s.txt):STEPS[s.step].t+'<span class="sub">, '+STEPS[s.step].rest+'</span>'}${a!=null&&a!==s.step?`<div class="warn sm">Adapted: ${STEPS[a].t}</div>`:''}</td></tr>`}).join('')}</table>
@@ -339,27 +357,29 @@ function saveW(){const d=$('wd').value,v=+$('wk').value.replace(',','.');if(!(v>
 function delW(d){if(confirm('Delete this weigh-in?')){S.weights=S.weights.filter(x=>x.date!==d);save();render()}}
 function pWeight(){const k=kcal(),ws=wAsc(),sw=+S.settings.startWeight,gw=+S.settings.goalWeight,last=ws[ws.length-1];
  const pts=ws.map(x=>[xOf(x.date),x.kg]),tgt=[[0,sw],[Math.min(15,(sw-gw)/.4),Math.max(gw,sw-.4*15)],[15,Math.max(gw,sw-.4*15)]];
- const lo=2*Math.floor((Math.min(gw,...ws.map(x=>x.kg))-1)/2),hi=2*Math.ceil((Math.max(sw,...ws.map(x=>x.kg))+1)/2),dueIn=last?7-Math.round((day(today())-day(last.date))/864e5):0;
+ const wk=wWeeks(),cw=wk.find(x=>x.w===weekOf(today())),avg=wk.map(x=>[x.w-.5,x.avg]);
+ const lo=2*Math.floor((Math.min(gw,...ws.map(x=>x.kg))-1)/2),hi=2*Math.ceil((Math.max(sw,...ws.map(x=>x.kg))+1)/2);
  return `<h1>Weight & nutrition</h1><div class="sub">Lose 0.3-0.5 kg a week to about ${gw} kg, without weighing food</div>
  <div class="card"><div class="kpi"><div><div class="sub sm">Eat per day</div><div class="big">${k.k} kcal</div><div class="sub sm">${k.goal?'Goal weight reached: maintenance':'Adjusts weekly from your weigh-ins'}</div></div>
- <div><div class="sub sm">Protein per day</div><div class="big">${k.prot} g</div><div class="sub sm">2 g per kg body weight</div></div></div>
+ <div><div class="sub sm">Protein per day</div><div class="big">${S.settings.proteinPortions} portions</div><div class="sub sm">About ${S.settings.proteinPortions*S.settings.proteinG} g at ~${S.settings.proteinG} g each</div></div></div>
  ${k.rate!=null?`<div style="margin-top:10px">Last change: <b>${k.rate>=0?'−':'+'}${Math.abs(k.rate).toFixed(2)} kg/week</b> ${k.rate<.25?pill(false,'too slow: −150 kcal'):k.rate>.75?pill(false,'too fast: +150 kcal'):pill(true,'in range')}</div>`:''}
  ${stallWarn()?'<div class="warn sm" style="margin-top:8px">Bench has not improved in 3 weeks while your weight drops. Consider eating 150-250 kcal more, mostly carbs around training.</div>':''}</div>
- <div class="card"><h2>Weekly weigh-in</h2><div class="sub sm">Same day each week, in the morning, after the toilet, before eating. ${last?(dueIn>0?`Next one in ${dueIn} day${dueIn>1?'s':''}.`:'<b class="warn">Due today.</b>'):''}</div>
+ <div class="card">${protW()}<div class="sub sm" style="margin-top:8px">Last 7 days: ${[6,5,4,3,2,1,0].map(i=>{const d=addD(today(),-i);return`${day(d).toLocaleDateString('en-GB',{weekday:'short'})} ${pDay(d).length}`}).join(' · ')}</div></div>
+ <div class="card"><h2>Weigh-in</h2><div class="sub sm">As often as you like, in the morning before eating. Calories adjust each Monday on the weekly average, so daily swings don't matter.${cw?` This week: <b>${kg(+cw.avg.toFixed(1))} kg</b> average of ${cw.n}.`:''}</div>
  <div class="row" style="margin-top:8px"><input id="wd" type="date" value="${today()}" style="flex:1.2"><input id="wk" inputmode="decimal" placeholder="kg" style="flex:1"><button class="btn w" onclick="saveW()">Save</button></div></div>
- <div class="card"><h2>Trend</h2>${chart({series:[{pts:tgt,c:'#c792ea',dash:1},{pts,c:'#c792ea',dots:1}],y0:lo,y1:hi,ticks:(hi-lo)/2})}${leg([['#c792ea','Weight · dashed: 0.4 kg/week target']])}
+ <div class="card"><h2>Trend</h2>${chart({series:[{pts:tgt,c:'#c792ea',dash:1},{pts,c:'#6b5a80',dots:1},{pts:avg,c:'#c792ea',dots:1}],y0:lo,y1:hi,ticks:(hi-lo)/2})}${leg([['#c792ea','Weekly average'],['#6b5a80','Weigh-ins'],['#8b9aab','Dashed: 0.4 kg/week target']])}
  ${ws.slice().reverse().map(x=>`<div class="it row between"><span>${fmtD(x.date)}</span><span><b>${kg(x.kg)} kg</b><button class="x" onclick="delW('${x.date}')">✕</button></span></div>`).join('')}</div>
  <div class="card"><h2>Rules of thumb</h2><ul>
- <li>A hand-sized portion of protein 3-4 times a day, plus a shake if you fall short.</li>
+ <li>About ${S.settings.proteinPortions} protein portions a day, shakes included. One portion is roughly 25-35 g: a palm-sized piece of meat or fish, 250 g skyr or quark, 3-4 eggs, or a shake.</li>
  <li>Half the plate vegetables at lunch and dinner.</li>
  <li>Cut liquid calories: soda, juice, most of the beer.</li>
  <li>Treats 2-3 times a week, not daily.</li>
  <li>Most carbs around training: the meal before and after.</li>
  <li>Judge by the weekly trend, not one day.</li></ul>
- ${k.log.length?`<h3>Calorie adjustments</h3>${k.log.slice(-5).reverse().map(l=>`<div class="sub sm">${fmtD(l.date)}: ${l.rate>=0?'−':'+'}${Math.abs(l.rate).toFixed(2)} kg/wk → ${l.d?(l.d>0?'+':'')+l.d+' kcal, ':''}${l.k} kcal</div>`).join('')}`:''}</div>`}
+ ${k.log.length?`<h3>Calorie adjustments</h3>${k.log.slice(-5).reverse().map(l=>`<div class="sub sm">${l.w<1?'Before start':'Week '+l.w}: ${l.rate>=0?'−':'+'}${Math.abs(l.rate).toFixed(2)} kg/wk → ${l.d?(l.d>0?'+':'')+l.d+' kcal, ':''}${l.k} kcal</div>`).join('')}`:''}</div>`}
 
 /* ---------- More ---------- */
-const SET=[['start','Week 1 starts (Monday)','date'],['benchStart','Bench start weight (kg)'],['flyStep','Fly weight step (kg)'],['machineStep','Machine press step (kg)'],['restBench','Rest bench (s)'],['restFly','Rest fly (s)'],['restMachine','Rest machine (s)'],['kcalStart','Starting kcal'],['startWeight','Start body weight (kg)'],['goalWeight','Goal body weight (kg)']];
+const SET=[['start','Week 1 starts (Monday)','date'],['benchStart','Bench start weight (kg)'],['flyStep','Fly weight step (kg)'],['machineStep','Machine press step (kg)'],['restBench','Rest bench (s)'],['restFly','Rest fly (s)'],['restMachine','Rest machine (s)'],['kcalStart','Starting kcal'],['startWeight','Start body weight (kg)'],['goalWeight','Goal body weight (kg)'],['proteinPortions','Protein portions per day'],['proteinG','Grams per portion (estimate)']];
 function saveSet(){SET.forEach(([k,,t])=>{const v=$('s_'+k).value;S.settings[k]=t==='date'?v:+String(v).replace(',','.')});save();alert('Saved');render()}
 async function exportData(){const txt=JSON.stringify(S,null,1),name=`training-backup-${today()}.json`;
  try{const f=new File([txt],name,{type:'application/json'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){if(e.name==='AbortError')return}
@@ -379,20 +399,20 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <div class="sub sm">Accepted per line: date;km;time. Dates as 2026-11-10 or 10-11-2026. Time as seconds, minutes or mm:ss. Metres and miles are converted.</div></div>
  <div class="card"><h2>Settings</h2>${SET.map(([k,n,t])=>`<label>${n}</label><input id="s_${k}" ${t==='date'?'type="date"':'inputmode="decimal"'} value="${S.settings[k]}">`).join('')}<button class="btn p full" onclick="saveSet()">Save settings</button></div>
  <div class="card"><h2>The plan</h2>
- <h3 class="lift">Strength · Mon and Thu</h3><ul>
+ <h3 class="lift">Strength · default Mon and Thu</h3><ul>
  <li>Chest A: bench 3 × 10-12 (same weight all sets), fly 2 × 12-15, machine press 2 × 12-15.</li>
  <li>Chest B: optional bench 2 × 10 at A weight minus 5 kg, fly 3 × 12-15, machine press 3 × 10-15.</li>
  <li>Stop 1-2 reps before failure. Fly and machine: heaviest set first, drop one pin per set.</li>
  <li>Bench: all sets 12+ means +2.5 kg next time. First set under 8 twice in a row means −5%.</li>
  <li>Rating 8 holds the weight. 9-10 twice in a row means −5% (bench) or one step down.</li>
  <li>Test weeks 5, 10, 15: Chest A is an all-out 10-rep set, Chest B is easy at half the sets.</li>
- <li>No triceps isolation unless the lockout stalls.</li></ul>
- <h3 class="run">Running · Tue and Sat</h3><ul>
+ <li>No triceps isolation unless the lockout stalls.</li><li>Move sessions on the Today screen. Keep at least 2 days between Chest A and B, and between the two runs.</li></ul>
+ <h3 class="run">Running · default Tue and Sat</h3><ul>
  <li>Tue: steady 5k, from 5:12/km down about 5 s/km a week. Test weeks replace it with a 5k test.</li>
  <li>Sat: intervals at 4:00/km, from 4 × 500 m to 2 × 2.5 km.</li>
  <li>Easy jog warm-up and cool-down. The bike commute is your easy volume.</li>
  <li>Get physio clearance for 4:00/km on the knee. Pain above 3/10 or next-day swelling: run easy.</li></ul>
- <h3 class="wt">Weight</h3><ul><li>Weekly weigh-in. Target 0.3-0.5 kg a week. Calories adjust by 150 kcal when the rate is outside 0.25-0.75.</li></ul></div>
+ <h3 class="wt">Weight</h3><ul><li>Weigh in as often as you like. Target 0.3-0.5 kg a week on the weekly average. Calories adjust by 150 kcal when the rate is outside 0.25-0.75.</li><li>About 6 protein portions a day, shakes count.</li></ul></div>
  <button class="btn full" style="color:var(--bad)" onclick="resetAll()">Delete all data</button>`}
 
 render();
