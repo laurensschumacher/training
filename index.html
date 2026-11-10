@@ -89,7 +89,7 @@ const interp=(pts,w)=>{if(w<=pts[0][0])return pts[0][1];for(let i=1;i<pts.length
 const pill=(ok,t)=>`<span class="pill ${ok===true?'ok':ok===false?'warn':''}">${t}</span>`;
 
 /* ---------- plan ---------- */
-const T10=[[0,80],[5,90],[10,95],[15,100]],T5K=[[0,1500],[5,1380],[10,1290],[15,1200]];
+const T10=[[0,90],[5,95],[10,97.5],[15,100]],T5K=[[0,1500],[5,1380],[10,1290],[15,1200]];
 const TEST=[5,10,15];
 const STEPS=[
  {t:'4 × 500 m',rest:'2 min walk',n:4},{t:'5 × 500 m',rest:'2 min walk',n:5},{t:'6 × 500 m',rest:'2 min walk',n:6},
@@ -129,7 +129,7 @@ function benchPred(){
 function accPred(ex,n){return{ws:Array(n).fill(''),why:'Machines differ per gym, so no weight is suggested. Pick a weight for 12-15 reps at RPE 8.'}}
 function benchEst(days=42,until=today()){const from=addD(until,-days);let best=null;
  S.gym.forEach(g=>{if(g.date<from||g.date>until)return;setsOf(g,'bench').forEach(s=>{if(s.r<=15){const v=est10(g,s);if(!best||v>best.v)best={v,date:g.date}}})});return best}
-function strengthStatus(){const x=xNow(),est=benchEst(),t10=interp(T10,x),bp=benchPred(),tw=t10;
+function strengthStatus(){const x=xNow(),est=benchEst(),t10=interp(T10,x),bp=benchPred(),tw=t10*.95;
  return{est,t10,bp,tw,on:est?est.v>=t10-1:null,wOn:bp.w>=r25(tw)-0.01}}
 
 /* ---------- cardio logic ---------- */
@@ -275,7 +275,7 @@ const SL={wu:'WU',top:'Top',bo:'B/O',test:'Test'};
 function wSel(k,s){const st=stepOf(s.ex),cur=+s.w||0,o=[];for(let v=0;v<=Math.max(200,cur);v=+(v+st).toFixed(2))o.push(v);if(!o.includes(cur))o.push(cur),o.sort((x,y)=>x-y);
  return`<div class="stp"><button class="btn" onclick="stepW(${k},-1)">−</button><select class="w" onchange="setW(${k},this.value)">${o.map(v=>`<option value="${v}" ${v===cur?'selected':''}>${kg(v)}</option>`).join('')}</select><button class="btn" onclick="stepW(${k},1)">+</button></div>`}
 function exRate(ex,cur){return`<label>Effort ${ex==='bench'?'on the top set ':''}(RPE) · 10 = nothing left</label><div class="rate">${[1,2,3,4,5,6,7,8,9,10].map(i=>`<button class="${cur===i?'on':''}" onclick="aRate('${ex}',${i})">${i}</button>`).join('')}</div>`}
-function pSession(){const a=S.active,w=weekOf(a.date),tw=r25(interp(T10,Math.max(0,xOf(a.date))));let h='';const groups={};a.rate=a.rate||{};
+function pSession(){const a=S.active,w=weekOf(a.date),tw=r25(interp(T10,Math.max(0,xOf(a.date)))*.95);let h='';const groups={};a.rate=a.rate||{};
  a.sets.forEach((s,i)=>{(groups[s.ex]=groups[s.ex]||[]).push(i)});
  Object.entries(groups).forEach(([ex,idx])=>{const s0=a.sets[idx[0]],top=idx.map(k=>a.sets[k]).find(s=>s.k==='top');
   const flag=top&&top.w<tw?`<div class="warn sm">Top set below this week's target of ${kg(tw)} kg</div>`:'';let n=0;
@@ -298,7 +298,7 @@ function pStrength(){if(S.active)return pSession();
  <div class="card"><div class="row between"><h2>Status</h2>${ss.est?pill(ss.on,ss.on?'On track':'Behind target'):''}</div>
  <div class="kpi"><div><div class="sub sm">Est. 10-rep max (6 wks)</div><div class="big">${ss.est?kg(ss.est.v):'-'}</div><div class="sub sm">Target now ${kg(ss.t10)} kg${(b=>b?' · est. 1RM '+kg(r25(b.v))+' kg':'')(best1RM())}</div></div>
  <div><div class="sub sm">Next top set</div><div class="big">${kg(bp.w)}</div><div class="sub sm">Target now ${kg(r25(ss.tw))} kg</div></div></div>
- ${chart({series:[{pts:T10,c:'#4ea1ff',dash:1},{pts:est,c:'#4ea1ff',dots:1},{pts:work,c:'#e8eef4',dots:1}],y0:60,y1:105,ticks:3})}
+ ${chart({series:[{pts:T10,c:'#4ea1ff',dash:1},{pts:est,c:'#4ea1ff',dots:1},{pts:work,c:'#e8eef4',dots:1}],y0:75,y1:105,ticks:3})}
  ${leg([['#4ea1ff','Est. 10RM'],['#e8eef4','Top set'],['#4ea1ff','Dashed: target']])}</div>
  <div class="card"><h2>Next: Chest ${nextT}${TEST.includes(w)?' (test week)':''}</h2>
  <ul>${layout(nextT,w).map(([e,n,h])=>`<li><b>${EX[e].n}</b> ${n} sets: ${e==='bench'?(TEST.includes(w)&&nextT==='A'?'test set':nextT==='A'?kg(bp.w)+' / '+kg(boW(bp.w))+' / '+kg(boW(bp.w))+' kg':kg(boW(bp.w))+' kg'):'weight of your choice'}<div class="sub sm">${esc(h)}</div></li>`).join('')}</ul>
@@ -476,6 +476,7 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <li>Bench: top set 10+ reps at RPE 9 or easier means +2.5 kg next time. Top set under 8 or rated 10, twice in a row, means −5%.</li>
  <li>Est. 1RM per session: top set weight × (1 + (reps + reps left) / 30), with reps left = 10 − RPE.</li>
  <li>Rate effort (RPE) per exercise. Bench: rate the top set.</li>
+ <li>10-rep max targets: 90 kg at the start, 95 by week 5, 97.5 by week 10, 100 by week 15. Faster early because strength comes back quickly after a break. Top set target is 95% of this.</li>
  <li>Test weeks 5, 10, 15: Chest A is an all-out 10-rep set, Chest B is easy at half the sets.</li>
  <li>No triceps isolation unless the lockout stalls.</li><li>Move sessions on the Today screen. Keep at least 2 days between Chest A and B, and between the two runs.</li></ul>
  <h3 class="run">Running · default Tue and Sat</h3><ul>
