@@ -63,7 +63,7 @@ ul{margin:6px 0;padding-left:20px}li{margin:3px 0;font-size:14px}
 <script>
 "use strict";
 const KEY='tracker-v2';
-const DEF={settings:{start:'2026-11-09',topStart:80,restWarm:60,flyStep:2.5,machineStep:5,restBench:150,restFly:60,restMachine:90,kcalStart:2650,startWeight:100,goalWeight:94,proteinPortions:6,proteinG:30},gym:[],runs:[],weights:[],protein:{},moves:{},active:null,timer:null};
+const DEF={settings:{start:'2026-11-09',topStart:80,restWarm:60,flyStep:2.5,machineStep:5,restBench:150,restFly:60,restMachine:90,kcalStart:2650,startWeight:100,goalWeight:94,proteinPortions:6,proteinG:30},gym:[],runs:[],weights:[],protein:{},creatine:{},moves:{},active:null,timer:null};
 let S=load();
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s)return{...JSON.parse(JSON.stringify(DEF)),...s,settings:{...DEF.settings,...s.settings}}}catch(e){}return JSON.parse(JSON.stringify(DEF))}
 function save(){localStorage.setItem(KEY,JSON.stringify(S))}
@@ -167,13 +167,17 @@ function wWeeks(){const m={};S.weights.forEach(x=>{const k=weekOf(x.date);(m[k]=
  return Object.keys(m).map(Number).sort((a,b)=>a-b).map(k=>({w:k,avg:m[k].reduce((a,b)=>a+b)/m[k].length,n:m[k].length}))}
 function kcal(){const ws=wAsc(),wk=wWeeks().filter(x=>x.w<weekOf(today()));let k=+S.settings.kcalStart,rate=null,log=[];
  for(let i=1;i<wk.length;i++){const a=wk[i-1],b=wk[i];
-  rate=(a.avg-b.avg)/(b.w-a.w);const o=k;if(rate<.25)k-=150;else if(rate>.75)k+=150;k=Math.min(3200,Math.max(2200,k));log.push({w:b.w,rate,k,d:k-o})}
+  rate=(a.avg-b.avg)/(b.w-a.w);const o=k,cw=crWeek();if(rate<.25&&!(cw!=null&&b.w>=cw&&b.w<cw+3))k-=150;else if(rate>.75)k+=150;k=Math.min(3200,Math.max(2200,k));log.push({w:b.w,rate,k,d:k-o})}
  const cur=ws.length?ws[ws.length-1].kg:+S.settings.startWeight,goal=cur<=+S.settings.goalWeight;
  if(goal)k=+S.settings.kcalStart+500;
  return{k,rate,log,cur,goal,prot:Math.round(cur*2/5)*5}}
 function stallWarn(){const wk=wWeeks();if(wk.length<3)return false;const now=benchEst(),then=benchEst(42,addD(today(),-21));
  return now&&then&&now.v<=then.v&&wk[wk.length-1].avg<wk[Math.max(0,wk.length-4)].avg}
 /* protein */
+const crStart=()=>Object.keys(S.creatine||{}).filter(d=>S.creatine[d]).sort()[0]||null;
+const crWeek=()=>{const d=crStart();return d?weekOf(d):null};
+const crLoading=()=>{const d=crStart();return d&&d>addD(today(),-21)?d:null};
+function togCr(ev){ev&&ev.stopPropagation();S.creatine=S.creatine||{};const d=pDate();if(S.creatine[d])delete S.creatine[d];else S.creatine[d]=1;save();render()}
 const pDay=d=>(S.protein||{})[d]||[];
 let PBACK=0;const pDate=()=>addD(today(),-PBACK);
 function pBack(v,ev){ev&&ev.stopPropagation();PBACK=v;render()}
@@ -183,7 +187,8 @@ function protW(){const a=pDay(pDate()),tg=+S.settings.proteinPortions,n=a.length
  return `<div class="row between"><b>Protein ${PBACK?'yesterday':'today'}: ${n} / ${tg}</b>${n>=tg?pill(true,'done'):''}</div>
  <div class="seg" style="margin:6px 0">${['Yesterday','Today'].map((t,i)=>`<button class="${PBACK===1-i?'on':''}" onclick="pBack(${1-i},event)">${t}</button>`).join('')}</div>
  <div>${Array.from({length:Math.max(n,tg)},(_,i)=>`<span class="pd ${i<n?'f':''}">${a[i]==='s'?'S':''}</span>`).join('')}</div>
- <div class="row" style="margin-top:8px"><button class="btn w grow" onclick="addP('p',event)">+ Portion</button><button class="btn w grow" onclick="addP('s',event)">+ Shake</button><button class="btn s" onclick="undoP(event)">Undo</button></div>`}
+ <div class="row" style="margin-top:8px"><button class="btn w grow" onclick="addP('p',event)">+ Portion</button><button class="btn w grow" onclick="addP('s',event)">+ Shake</button><button class="btn s" onclick="undoP(event)">Undo</button></div>
+ <div class="row between" style="margin-top:12px"><b>Creatine ${PBACK?'yesterday':'today'}</b><button class="btn ${S.creatine?.[pDate()]?'p':''}" onclick="togCr(event)">${S.creatine?.[pDate()]?'✓ Taken':'+ 5 g'}</button></div>`}
 /* schedule */
 const SLOT={A:0,tue:1,B:3,sat:5};
 const slot=(w,k)=>(S.moves||{})[w+':'+k]??SLOT[k];
@@ -441,8 +446,9 @@ function pWeight(){const k=kcal(),ws=wAsc(),sw=+S.settings.startWeight,gw=+S.set
  <div class="card"><div class="kpi"><div><div class="sub sm">Eat per day</div><div class="big">${k.k} kcal</div><div class="sub sm">${k.goal?'Goal weight reached: maintenance':'Adjusts weekly from your weigh-ins'}</div></div>
  <div><div class="sub sm">Protein per day</div><div class="big">${S.settings.proteinPortions} portions</div><div class="sub sm">About ${S.settings.proteinPortions*S.settings.proteinG} g at ~${S.settings.proteinG} g each</div></div></div>
  ${k.rate!=null?`<div style="margin-top:10px">Last change: <b>${k.rate>=0?'−':'+'}${Math.abs(k.rate).toFixed(2)} kg/week</b> ${k.rate<.25?pill(false,'too slow: −150 kcal'):k.rate>.75?pill(false,'too fast: +150 kcal'):pill(true,'in range')}</div>`:''}
+ ${crLoading()?`<div class="sub sm" style="margin-top:8px">Started creatine ${fmtD(crLoading())}. Expect 1-2 kg of water weight in the first 3 weeks, so calories are not lowered for slow weight loss until then.</div>`:''}
  ${stallWarn()?'<div class="warn sm" style="margin-top:8px">Bench has not improved in 3 weeks while your weight drops. Consider eating 150-250 kcal more, mostly carbs around training.</div>':''}</div>
- <div class="card">${protW()}<div class="sub sm" style="margin-top:8px">Last 7 days: ${[6,5,4,3,2,1,0].map(i=>{const d=addD(today(),-i);return`${day(d).toLocaleDateString('en-GB',{weekday:'short'})} ${pDay(d).length}`}).join(' · ')}</div></div>
+ <div class="card">${protW()}<div class="sub sm" style="margin-top:8px">Last 7 days: ${[6,5,4,3,2,1,0].map(i=>{const d=addD(today(),-i);return`${day(d).toLocaleDateString('en-GB',{weekday:'short'})} ${pDay(d).length}${S.creatine?.[d]?'+C':''}`}).join(' · ')}</div>${crStart()?`<div class="sub sm">Creatine: ${[...Array(7)].filter((_,i)=>S.creatine?.[addD(today(),-i)]).length} of the last 7 days (+C). Started ${fmtD(crStart())}.</div>`:''}</div>
  <div class="card"><h2>Weigh-in</h2><div class="sub sm">As often as you like, in the morning before eating. Calories adjust each Monday on the weekly average, so daily swings don't matter.${cw?` This week: <b>${kg(+cw.avg.toFixed(1))} kg</b> average of ${cw.n}.`:''}</div>
  <div class="row" style="margin-top:8px"><input id="wd" type="date" value="${today()}" style="flex:1.2"><input id="wk" inputmode="decimal" placeholder="kg" style="flex:1"><button class="btn w" onclick="saveW()">Save</button></div></div>
  <div class="card"><h2>Trend</h2>${chart({series:[{pts:tgt,c:'#c792ea',dash:1},{pts,c:'#6b5a80',dots:1},{pts:avg,c:'#c792ea',dots:1}],y0:lo,y1:hi,ticks:(hi-lo)/2})}${leg([['#c792ea','Weekly average'],['#6b5a80','Weigh-ins'],['#8b9aab','Dashed: 0.4 kg/week target']])}
@@ -494,7 +500,7 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <li>Log runs from a Fitness app screenshot (Workout Details and Splits). The text is read on the phone, nothing is uploaded.</li>
  <li>Easy jog warm-up and cool-down. The bike commute is your easy volume.</li>
  <li>Get physio clearance for 4:00/km on the knee. Pain above 3/10 or next-day swelling: run easy.</li></ul>
- <h3 class="wt">Weight</h3><ul><li>Weigh in as often as you like. Target 0.3-0.5 kg a week on the weekly average. Calories adjust by 150 kcal when the rate is outside 0.25-0.75.</li><li>About 6 protein portions a day, shakes count.</li></ul></div>
+ <h3 class="wt">Weight</h3><ul><li>Weigh in as often as you like. Target 0.3-0.5 kg a week on the weekly average. Calories adjust by 150 kcal when the rate is outside 0.25-0.75.</li><li>About 6 protein portions a day, shakes count.</li><li>Creatine: 3-5 g a day, any time. The first 3 weeks after you start, calories are not lowered for slow weight loss, because creatine adds 1-2 kg of water.</li></ul></div>
  <button class="btn full" style="color:var(--bad)" onclick="resetAll()">Delete all data</button>`}
 
 /* Sessions started before warm-ups/top sets existed: add the missing warm-ups and labels */
