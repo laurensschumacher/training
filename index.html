@@ -311,18 +311,19 @@ function pStrength(){if(S.active)return pSession();
  ${['bench','fly','machine'].map(e=>{const s=setsOf(g,e);const rt=g.rate?.[e];return s.length?`<div class="sub sm">${EX[e].n}${rt?' (RPE '+rt+')':''}: ${s.map(x=>(x.k==='top'?'top ':'')+kg(x.w)+'×'+x.r).join(', ')}</div>`:''}).join('')}${g.note?`<div class="sub sm"><i>${esc(g.note)}</i></div>`:''}</div>`).join('')||'<div class="sub">No sessions yet.</div>'}</div>`}
 
 /* ---------- Cardio ---------- */
-let F=null,IMP=null;
+let F=null,IMP=null,OCR=null;
 function newRunForm(){const w=curWeek(),dn=weekDone(w),dow=day(today()).getDay(),tp=tuePlan(w);
  let kind=slotDate(w,'sat')===today()||(dn.tue&&!dn.sat)?'interval':tp.test?'test':'steady';const sp=satPlan(w);
- F={kind,date:today(),km:kind==='interval'?'':(tp.km||5),time:'',step:sp.light?-1:intNext().s,reps:'',held:true,knee:'',rating:null,note:''}}
+ F={kind,date:today(),km:kind==='interval'?'':(tp.km||5),time:'',step:sp.light?-1:intNext().s,reps:'',held:true,knee:'',rating:null,note:'',splits:null,hr:null}}
 function rf(k,v){F[k]=v;if(k==='kind'||k==='step'||k==='held')render()}
 function rRate(i){F.rating=i;render()}
 function saveRun(){const km=+String(F.km).replace(',','.'),sec=parseT(F.time);
  if(F.kind!=='interval'&&!(km>0&&sec>0)){alert('Enter distance and time.');return}
  if(!F.rating&&!confirm('No rating yet. Save anyway?'))return;
  const r={id:uid(),ts:Date.now(),kind:F.kind,date:F.date,km:km||null,sec:sec>0?sec:null,rating:F.rating,note:F.note,knee:F.knee===''?null:+F.knee};
+ if(F.splits?.length)r.splits=F.splits;if(F.hr)r.hr=F.hr;
  if(F.kind==='interval'){r.step=+F.step;r.reps=F.reps===''?(r.step>=0?STEPS[r.step].n:null):+F.reps;r.held=!!F.held}
- S.runs.push(r);save();F=null;render();scrollTo(0,0)}
+ S.runs.push(r);save();F=null;OCR=null;render();scrollTo(0,0)}
 function delRun(id){if(confirm('Delete this run?')){S.runs=S.runs.filter(r=>r.id!==id);save();render()}}
 function parseDateAny(s){s=s.trim();let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
  m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);if(m)return`${m[3].length===2?'20'+m[3]:m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
@@ -335,6 +336,46 @@ async function importClip(){let t='';try{t=await navigator.clipboard.readText()}
  IMP={txt:t,list:parseImport(t)};render();if(!IMP.list.length)setTimeout(()=>$('imptxt')?.focus(),50)}
 function impParse(){IMP.txt=$('imptxt').value;IMP.list=parseImport(IMP.txt);render()}
 function impPick(i){const r=IMP.list[i];if(!F)newRunForm();F.date=r.date;F.km=r.km;F.time=mmss(r.sec);IMP=null;render()}
+/* screenshot import (on-device OCR) */
+const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+function parseShot(raw){
+ const t=String(raw).replace(/[’‘`´′]/g,"'").replace(/[”“″]|''/g,'"').replace(/[|]/g,' '),out={splits:[]};
+ const pc=(m,s)=>+m*60+ +s;
+ let m=t.match(/(\d{1,3}[.,]\d{1,2})\s*(KM|MI)\b(?!\s*\/)/i);if(m){let km=+m[1].replace(',','.');if(/mi/i.test(m[2]))km*=1.609;out.km=+km.toFixed(2)}
+ m=t.match(/\b(\d{1,2}):([0-5]\d):([0-5]\d)\b/);if(m)out.sec=+m[1]*3600+ +m[2]*60+ +m[3];
+ m=t.match(/Avg\.?\s*Pace[\s\S]{0,60}?(\d{1,2})'\s?([0-5]\d)/i)||t.match(/(\d{1,2})'\s?([0-5]\d)"?\s*\/\s*(?:KM|K)/i);if(m)out.pace=pc(m[1],m[2]);
+ if(!out.sec&&out.pace&&out.km)out.sec=Math.round(out.pace*out.km);
+ m=t.match(/Avg\.?\s*Heart\s*Rate[\s\S]{0,40}?(\d{2,3})\s*BPM/i);if(m)out.hr=+m[1];
+ m=t.match(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,?\s+(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?(?:\s+(\d{4}))?/i)
+  ||t.match(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?/i);
+ if(m){const dd=isNaN(m[2])?+m[3]:+m[2],mo=MON[(isNaN(m[2])?m[2]:m[3]).slice(0,3).toLowerCase()];let y=+m[4]||+today().slice(0,4);
+  let d=`${y}-${String(mo).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;if(!m[4]&&d>today())d=`${y-1}${d.slice(4)}`;out.date=d}
+ else if(/\bYesterday\b/i.test(t))out.date=addD(today(),-1);
+ // splits: per screenshot, lines after a "Splits" heading that contain a pace ending in KM; OCR often drops ' and " so they are optional
+ const sp={};t.split('\f').forEach(img=>{const ls=img.split(/\n/),h=ls.findIndex(l=>/^\s*Splits\b/i.test(l));let n=0;
+  ls.slice(h+1).forEach(l=>{if(/avg/i.test(l))return;const x=l.match(/(\d{1,2})['"]?\s?([0-5]\d)["']{0,2}\s*\/?\s*KM/i);if(!x)return;
+   const lead=l.trim().match(/^(\d{1,2})\s/);if(h<0&&!lead)return;n=lead&&+lead[1]<=60&&+lead[1]>n?+lead[1]:n+1;
+   const p=pc(x[1],x[2]);if(p<150||p>900)return;const hb=l.match(/(\d{2,3})\s*BPM/i);sp[n]={n,p,hr:hb?+hb[1]:null}})});
+ for(let i=1;sp[i];i++)out.splits.push(sp[i]);
+ if(out.km&&out.splits.length>Math.ceil(out.km))out.splits=out.splits.slice(0,Math.ceil(out.km));
+ return out}
+function loadScript(src){return new Promise((ok,no)=>{if(window.Tesseract)return ok();const e=document.createElement('script');e.src=src;e.onload=ok;e.onerror=()=>no(new Error('Could not load '+src));document.head.appendChild(e)})}
+function prepImg(file){return new Promise((ok,no)=>{const img=new Image(),u=URL.createObjectURL(file);img.onload=()=>{
+ const sc=img.width<900?2:1,c=document.createElement('canvas');c.width=img.width*sc;c.height=img.height*sc;const x=c.getContext('2d');x.drawImage(img,0,0,c.width,c.height);
+ const d=x.getImageData(0,0,c.width,c.height),a=d.data;let sum=0;for(let i=0;i<a.length;i+=4){const v=Math.max(a[i],a[i+1],a[i+2]);a[i]=v;sum+=v}
+ const dark=sum/(a.length/4)<128;for(let i=0;i<a.length;i+=4){let v=a[i];if(dark)v=255-v;v=v<150?0:v>200?255:(v-150)*5.1;a[i]=a[i+1]=a[i+2]=v}
+ x.putImageData(d,0,0);URL.revokeObjectURL(u);ok(c)};img.onerror=()=>no(new Error('Not an image'));img.src=u})}
+async function shotImport(inp){const files=[...inp.files];inp.value='';if(!files.length)return;
+ OCR={busy:true,msg:'Loading text reader (first time about 7 MB)…'};render();
+ try{const base=new URL('ocr/',location.href).href;await loadScript(base+'tesseract.min.js');
+  const wk=await Tesseract.createWorker('eng',1,{workerPath:base+'worker.min.js',corePath:base,langPath:base,gzip:true,
+   logger:m=>{if(m.status==='recognizing text'&&OCR?.busy){OCR.msg=`Reading screenshot ${OCR.i}/${files.length}… ${Math.round(m.progress*100)}%`;const el=$('ocrmsg');if(el)el.textContent=OCR.msg}}});
+  let txt='';for(let i=0;i<files.length;i++){OCR.i=i+1;const c=await prepImg(files[i]);const r=await wk.recognize(c);txt+=(i?'\f':'')+r.data.text}
+  await wk.terminate();const res=parseShot(txt);if(!F)newRunForm();
+  if(res.km)F.km=res.km;if(res.sec)F.time=mmss(res.sec);if(res.date)F.date=res.date;if(res.splits.length)F.splits=res.splits.map(({n,p,hr})=>hr?{n,p,hr}:{n,p});if(res.hr)F.hr=res.hr;
+  OCR={txt,res,ok:!!(res.km||res.sec||res.splits.length)}}
+ catch(e){OCR={err:e.message||String(e)}}render()}
+const splitTxt=sp=>sp.map(x=>mmss(x.p)).join(' · ');
 function pCardio(){if(!F)newRunForm();const w=curWeek(),tp=tuePlan(w),sp=satPlan(w),sn=steadyNext(),inx=intNext(),ad=satAdaptive(),cs=cardioStatus(),dn=weekDone(w);
  const nsw=dn.tue?Math.min(15,w+1):w,ntp=tuePlan(nsw);
  const est=[],tests=[];[...S.runs].sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{if(r.kind==='interval'||!(r.km>=3&&r.sec>0))return;(r.kind==='test'?tests:est).push([xOf(r.date),riegel(r.sec,r.km)])});
@@ -349,7 +390,13 @@ function pCardio(){if(!F)newRunForm();const w=curWeek(),tp=tuePlan(w),sp=satPlan
  <div class="it"><b>${ntp.test?'5k test':'Steady run'}</b> <span class="sub sm">week ${nsw}</span><div>${ntp.test?ntp.txt:`Plan ${mmss(ntp.pace)}/km · suggested <b>${mmss(nsw===14?Math.min(sn.p,250):sn.p)}/km</b> ${sn.p<=ntp.pace+2?pill(true,'on track'):pill(false,'slower than plan')}`}</div><div class="sub sm">${ntp.test?'Replaces the steady run. Warm up 10 min easy first.':'↳ '+sn.why+(nsw===14?'. Taper: 3 km only.':'')}</div></div>
  <div class="it"><b>Intervals</b> <span class="sub sm">week ${dn.sat?Math.min(15,w+1):w}</span>${(()=>{const nw=dn.sat?Math.min(15,w+1):w,p=satPlan(nw);return p.light?`<div>${p.txt}</div>`:`<div>Plan ${STEPS[p.step].t} · suggested <b>${STEPS[ad[nw]].t}</b>, ${STEPS[ad[nw]].rest}, at 4:00/km</div><div class="sub sm">↳ ${inx.why}</div>`})()}</div>
  <div class="sub sm" style="margin-top:6px">Add 5-10 min easy jog before and after. Knee pain above 3/10 or swelling next day: run easy instead.</div></div>
- <div class="card"><div class="row between"><h2>Log a run</h2><button class="btn s" onclick="importClip()">Paste from Watch</button></div>
+ <div class="card"><div class="row between"><h2>Log a run</h2><div class="row"><label class="btn s r" style="margin:0;color:#06121f">Screenshot<input type="file" accept="image/*" multiple style="display:none" onchange="shotImport(this)"></label><button class="btn s" onclick="importClip()">Paste</button></div></div>
+ ${OCR?`<div class="card" style="background:var(--card2)">${OCR.busy?`<div class="sub sm" id="ocrmsg">${esc(OCR.msg)}</div>`:OCR.err?`<div class="bad sm">Could not read the screenshot: ${esc(OCR.err)}</div>`:
+  `<div class="sm ${OCR.ok?'ok':'warn'}">${OCR.ok?'Filled in from the screenshot. Check the numbers before saving.':'Could not find distance, time or splits. Try the Workout Details or Splits screen.'}</div>
+  <div class="sub sm">${[OCR.res.km&&OCR.res.km+' km',OCR.res.sec&&mmss(OCR.res.sec),OCR.res.pace&&'avg '+mmss(OCR.res.pace)+'/km',OCR.res.hr&&OCR.res.hr+' bpm',OCR.res.splits.length&&OCR.res.splits.length+' splits',OCR.res.date&&fmtD(OCR.res.date)].filter(Boolean).join(' · ')}</div>
+  <details><summary class="sub sm">Text read from the image</summary><pre class="sub sm" style="white-space:pre-wrap">${esc(OCR.txt)}</pre></details>`}
+  ${OCR.busy?'':'<button class="btn s" style="margin-top:6px" onclick="OCR=null;render()">Close</button>'}</div>`:''}
+ <div class="sub sm">Screenshot: Fitness app on iPhone, the run's Workout Details and Splits. You can pick several at once.</div>
  ${IMP?`<div class="card" style="background:var(--card2)">${IMP.list.length?'<div class="sub sm">Pick the run to fill the form:</div>'+IMP.list.map((r,i)=>`<button class="btn pick" onclick="impPick(${i})">${fmtD(r.date)} · ${r.km} km · ${mmss(r.sec)} · ${mmss(r.sec/r.km)}/km</button>`).join(''):'<div class="sub sm">Nothing readable on the clipboard. Run the Shortcut first, or paste its output here (one line per run: date;km;seconds).</div>'}
   <textarea id="imptxt" placeholder="2026-11-10;5.02;1561">${esc(IMP.txt)}</textarea><div class="row" style="margin-top:6px"><button class="btn s" onclick="impParse()">Read</button><button class="btn s" onclick="IMP=null;render()">Close</button></div></div>`:''}
  <div class="seg" style="margin-top:8px">${[['steady','Steady'],['interval','Intervals'],['test','5k test'],['easy','Easy']].map(([k,n])=>`<button class="${F.kind===k?'on':''}" onclick="rf('kind','${k}')">${n}</button>`).join('')}</div>
@@ -360,6 +407,7 @@ function pCardio(){if(!F)newRunForm();const w=curWeek(),tp=tuePlan(w),sp=satPlan
   <div class="sub sm" style="margin-top:6px">Distance and time are optional here. Watch totals include the walking, so total pace says little.</div>`:''}
  <div class="row"><div class="grow"><label>Distance (km)</label><input inputmode="decimal" value="${F.km??''}" oninput="rf('km',this.value)"></div>
  <div class="grow"><label>Time (mm:ss)</label><input inputmode="text" value="${F.time}" placeholder="25:40" oninput="rf('time',this.value)"></div></div>
+ ${F.splits?.length?`<label>Splits (min/km)${F.hr?' · avg '+F.hr+' bpm':''}</label><div class="sm">${splitTxt(F.splits)} <button class="x" onclick="F.splits=null;F.hr=null;render()">✕</button></div>`:''}
  ${pace&&F.kind!=='interval'?`<div class="sub sm" style="margin-top:6px">Pace ${mmss(pace)}/km${+F.km>=3?' · 5k equivalent '+mmss(riegel(parseT(F.time),+String(F.km).replace(',','.'))):''}</div>`:''}
  <label>Knee pain during or after (0-10, optional)</label><input inputmode="numeric" value="${F.knee}" oninput="rf('knee',this.value)">
  ${rateW(F.rating,'rRate')}<label>Note</label><textarea oninput="rf('note',this.value)">${esc(F.note)}</textarea>
@@ -370,7 +418,7 @@ function pCardio(){if(!F)newRunForm();const w=curWeek(),tp=tuePlan(w),sp=satPlan
   <td>${d.sat?'✓ ':''}${s.light?esc(s.txt):STEPS[s.step].t+'<span class="sub">, '+STEPS[s.step].rest+'</span>'}${a!=null&&a!==s.step?`<div class="warn sm">Adapted: ${STEPS[a].t}</div>`:''}</td></tr>`}).join('')}</table>
  <div class="sub sm" style="margin-top:6px">Steady pace drops 5 s/km a week. Rating 8 means 3 s, 9-10 means hold. Intervals: rating 7 or lower with pace held is the next step, 8-9 repeats, 10 or pace missed is a step back.</div></div>
  <div class="card"><h2>History</h2>${runsDesc().map(r=>`<div class="it"><div class="row between"><b>${fmtD(r.date)} · ${({steady:'Steady',interval:'Intervals',test:'5k test',easy:'Easy'})[r.kind]}</b><span>${r.rating?'Rated '+r.rating:''}<button class="x" onclick="delRun('${r.id}')">✕</button></span></div>
- <div class="sub sm">${r.kind==='interval'?(r.step>=0?STEPS[r.step].t:'Light')+` · ${r.reps??'?'} reps · pace ${r.held?'held':'<span class="warn">not held</span>'}`:`${r.km} km · ${mmss(r.sec)} · ${mmss(r.sec/r.km)}/km`}${r.knee!=null?` · knee ${r.knee}/10`:''}</div>${r.note?`<div class="sub sm"><i>${esc(r.note)}</i></div>`:''}</div>`).join('')||'<div class="sub">No runs yet.</div>'}</div>`}
+ <div class="sub sm">${r.kind==='interval'?(r.step>=0?STEPS[r.step].t:'Light')+` · ${r.reps??'?'} reps · pace ${r.held?'held':'<span class="warn">not held</span>'}`:`${r.km} km · ${mmss(r.sec)} · ${mmss(r.sec/r.km)}/km`}${r.hr?` · ${r.hr} bpm`:''}${r.knee!=null?` · knee ${r.knee}/10`:''}</div>${r.splits?.length?`<div class="sub sm">Splits: ${splitTxt(r.splits)}</div>`:''}${r.note?`<div class="sub sm"><i>${esc(r.note)}</i></div>`:''}</div>`).join('')||'<div class="sub">No runs yet.</div>'}</div>`}
 
 /* ---------- Weight ---------- */
 function saveW(){const d=$('wd').value,v=+$('wk').value.replace(',','.');if(!(v>40)){alert('Enter your weight.');return}
@@ -432,6 +480,7 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <h3 class="run">Running · default Tue and Sat</h3><ul>
  <li>Tue: steady 5k, from 5:12/km down about 5 s/km a week. Test weeks replace it with a 5k test.</li>
  <li>Sat: intervals at 4:00/km, from 4 × 500 m to 2 × 2.5 km.</li>
+ <li>Log runs from a Fitness app screenshot (Workout Details and Splits). The text is read on the phone, nothing is uploaded.</li>
  <li>Easy jog warm-up and cool-down. The bike commute is your easy volume.</li>
  <li>Get physio clearance for 4:00/km on the knee. Pain above 3/10 or next-day swelling: run easy.</li></ul>
  <h3 class="wt">Weight</h3><ul><li>Weigh in as often as you like. Target 0.3-0.5 kg a week on the weekly average. Calories adjust by 150 kcal when the rate is outside 0.25-0.75.</li><li>About 6 protein portions a day, shakes count.</li></ul></div>
