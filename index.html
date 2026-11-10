@@ -111,6 +111,11 @@ const setsOf=(g,ex)=>g.sets.filter(s=>s.ex===ex&&s.k!=='wu'&&s.w>0&&s.r>0);
 const rateOf=(g,ex)=>(g.rate?g.rate[ex]:g.rating)||0;
 const e10=(w,r)=>w*(30+r)/40;
 const est10=(g,s)=>{const rt=rateOf(g,'bench'),rir=(s.k==='top'||s.k==='test')&&rt?Math.max(0,Math.min(3,10-rt)):0;return e10(s.w,s.r+rir)};
+// 1RM: Epley on reps plus reps in reserve (10 − RPE), RPE only applies to the top or test set
+const e1=(w,r,rpe)=>{const rir=rpe?Math.max(0,Math.min(4,10-rpe)):0;return w*(1+Math.min(15,r+rir)/30)};
+function oneRM(sets,rpe){const t=sets.find(s=>(s.k==='top'||s.k==='test')&&s.w>0&&s.r>0);if(t)return{v:e1(t.w,t.r,rpe),s:t,rpe};
+ let b=null;sets.filter(s=>s.k!=='wu'&&s.w>0&&s.r>0&&s.r<=15).forEach(s=>{const v=e1(s.w,s.r);if(!b||v>b.v)b={v,s}});return b}
+function best1RM(days=42){const from=addD(today(),-days);let b=null;S.gym.forEach(g=>{if(g.date<from)return;const o=oneRM(setsOf(g,'bench').map(x=>x),rateOf(g,'bench'));if(o&&(!b||o.v>b.v))b={...o,date:g.date}});return b}
 const boW=t=>r25(t*.9),wu2W=t=>Math.max(Math.min(60,r25(t*.8)),r25(t*.75));
 const topOf=g=>{const b=setsOf(g,'bench');return b.find(s=>s.k==='top')||b[0]};
 function benchPred(){
@@ -288,7 +293,7 @@ function pSession(){const a=S.active,w=weekOf(a.date),tw=r25(interp(T10,Math.max
   ${idx.map(k=>{const s=a.sets[k],lb=s.k?SL[s.k]:++n;return`<div class="set ${s.done?'done':''} ${s.k||''}" data-k="${k}"><span class="n">${lb}</span>
    ${wSel(k,s)}
    <input class="r" inputmode="numeric" value="${s.r}" placeholder="${s.hint.match(/\d+(-\d+)?/)?.[0]||''}" onchange="setF(${k},'r',this.value)">
-   <button class="btn" onclick="doneSet(${k})">${s.done?'✓':'Done'}</button></div>`}).join('')}${exRate(ex,a.rate[ex])}</div>`});
+   <button class="btn" onclick="doneSet(${k})">${s.done?'✓':'Done'}</button></div>`}).join('')}${exRate(ex,a.rate[ex])}${ex==='bench'?(o=>o?`<div class="row between" style="margin-top:10px"><span class="sub sm">Est. 1RM from ${kg(o.s.w)} × ${o.s.r}${o.rpe?' @ RPE '+o.rpe:''}${!o.rpe&&(o.s.k==='top'||o.s.k==='test')?' (rate RPE to refine)':''}</span><b class="lift">${kg(r25(o.v))} kg</b></div>`:'')(oneRM(idx.map(k=>a.sets[k]).filter(s=>s.done),a.rate.bench)):''}</div>`});
  return `<h1>Chest ${a.type}${a.test?' · test week':''}</h1><div class="sub">Week ${w} · ${fmtD(a.date)}${a.test&&a.type==='A'?' · test set is all-out':''}</div>${h}
  <div class="card"><label>Note</label><textarea id="anote" placeholder="Back, shoulder, anything worth noting">${esc(a.note)}</textarea>
  <button class="btn p full" onclick="finishSession()">Finish and save</button><button class="btn full" onclick="discardSession()">Discard</button></div>`}
@@ -299,7 +304,7 @@ function pStrength(){if(S.active)return pSession();
  const byWeek=w=>{const g=S.gym.filter(x=>weekOf(x.date)===w&&x.type==='A');const b=g.flatMap(x=>setsOf(x,'bench'));return b.length?Math.max(...g.flatMap(x=>setsOf(x,'bench').map(s=>est10(x,s)))):null};
  return `<h1>Strength</h1><div class="sub">Goal: bench 100 kg × 10 by week 15</div>
  <div class="card"><div class="row between"><h2>Status</h2>${ss.est?pill(ss.on,ss.on?'On track':'Behind target'):''}</div>
- <div class="kpi"><div><div class="sub sm">Est. 10-rep max (6 wks)</div><div class="big">${ss.est?kg(ss.est.v):'-'}</div><div class="sub sm">Target now ${kg(ss.t10)} kg</div></div>
+ <div class="kpi"><div><div class="sub sm">Est. 10-rep max (6 wks)</div><div class="big">${ss.est?kg(ss.est.v):'-'}</div><div class="sub sm">Target now ${kg(ss.t10)} kg${(b=>b?' · est. 1RM '+kg(r25(b.v))+' kg':'')(best1RM())}</div></div>
  <div><div class="sub sm">Next top set</div><div class="big">${kg(bp.w)}</div><div class="sub sm">Target now ${kg(r25(ss.tw))} kg</div></div></div>
  ${chart({series:[{pts:T10,c:'#4ea1ff',dash:1},{pts:est,c:'#4ea1ff',dots:1},{pts:work,c:'#e8eef4',dots:1}],y0:60,y1:105,ticks:3})}
  ${leg([['#4ea1ff','Est. 10RM'],['#e8eef4','Top set'],['#4ea1ff','Dashed: target']])}</div>
@@ -311,7 +316,7 @@ function pStrength(){if(S.active)return pSession();
  ${Array.from({length:15},(_,i)=>i+1).map(k=>{const e=byWeek(k),t=interp(T10,k);return`<tr class="${k===w?'cur':''} ${TEST.includes(k)?'test':''}"><td>${k}${TEST.includes(k)?' T':''}</td><td>${kg(t)}</td><td class="${e==null?'':e>=t-1?'ok':'warn'}">${e==null?'':kg(e)}</td></tr>`}).join('')}</table>
  <div class="sub sm" style="margin-top:6px">T = test week: Chest A is an all-out 10-rep set, Chest B is easy at half the sets.</div></div>
  <div class="card"><h2>History</h2>${gymDesc().map(g=>`<div class="it"><div class="row between"><b>${fmtD(g.date)} · Chest ${g.type}${g.test?' (test)':''}</b><span>${!g.rate&&g.rating?'Rated '+g.rating:''}<button class="x" onclick="delGym('${g.id}')">✕</button></span></div>
- ${['bench','fly','machine'].map(e=>{const s=setsOf(g,e);const rt=g.rate?.[e];return s.length?`<div class="sub sm">${EX[e].n}${rt?' (RPE '+rt+')':''}: ${s.map(x=>(x.k==='top'?'top ':'')+kg(x.w)+'×'+x.r).join(', ')}</div>`:''}).join('')}${g.note?`<div class="sub sm"><i>${esc(g.note)}</i></div>`:''}</div>`).join('')||'<div class="sub">No sessions yet.</div>'}</div>`}
+ ${['bench','fly','machine'].map(e=>{const s=setsOf(g,e);const rt=g.rate?.[e],o=e==='bench'&&oneRM(s,rateOf(g,'bench'));return s.length?`<div class="sub sm">${EX[e].n}${rt?' (RPE '+rt+')':''}${o?' · est. 1RM '+kg(r25(o.v))+' kg':''}: ${s.map(x=>(x.k==='top'?'top ':'')+kg(x.w)+'×'+x.r).join(', ')}</div>`:''}).join('')}${g.note?`<div class="sub sm"><i>${esc(g.note)}</i></div>`:''}</div>`).join('')||'<div class="sub">No sessions yet.</div>'}</div>`}
 
 /* ---------- Cardio ---------- */
 let F=null,IMP=null,OCR=null;
@@ -477,6 +482,7 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <li>Chest B: optional bench 2 × 10 at back-off weight, fly 3 × 12-15, machine press 3 × 10-15.</li>
  <li>Stop 1-2 reps before failure. Fly and machine: heaviest set first, drop one pin per set.</li>
  <li>Bench: top set 10+ reps at RPE 9 or easier means +2.5 kg next time. Top set under 8 or rated 10, twice in a row, means −5%.</li>
+ <li>Est. 1RM per session: top set weight × (1 + (reps + reps left) / 30), with reps left = 10 − RPE.</li>
  <li>Rate effort (RPE) per exercise. Bench: rate the top set. Fly and machine: rating 8 holds the weight, 9-10 twice in a row means one step down.</li>
  <li>Test weeks 5, 10, 15: Chest A is an all-out 10-rep set, Chest B is easy at half the sets.</li>
  <li>No triceps isolation unless the lockout stalls.</li><li>Move sessions on the Today screen. Keep at least 2 days between Chest A and B, and between the two runs.</li></ul>
