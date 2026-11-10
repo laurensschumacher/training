@@ -495,6 +495,13 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <h3 class="wt">Weight</h3><ul><li>Weigh in as often as you like. Target 0.3-0.5 kg a week on the weekly average. Calories adjust by 150 kcal when the rate is outside 0.25-0.75.</li><li>About 6 protein portions a day, shakes count.</li></ul></div>
  <button class="btn full" style="color:var(--bad)" onclick="resetAll()">Delete all data</button>`}
 
+/* Sessions started before warm-ups/top sets existed: add the missing warm-ups and labels */
+function fixActive(){const a=S.active;if(!a)return;const b=a.sets.filter(s=>s.ex==='bench');if(!b.length)return;let ch=false;
+ if(!b.some(s=>s.k)&&!b.some(s=>s.done)){if(a.type==='A'&&!a.test){b[0].k='top';b[0].hint='8-10';b.slice(1).forEach(s=>{s.k='bo';s.hint='10-12';s.w=boW(b[0].w)})}else b.forEach(s=>s.k=a.test&&a.type==='A'?'test':'bo');ch=true}
+ if(!b.some(s=>s.k==='wu')){const ref=b.find(s=>s.k==='top'||s.k==='test')?.w||(a.type==='A'?b[0].w:r25(b[0].w/.9)),at=a.sets.indexOf(b[0]);
+  a.sets.splice(at,0,{ex:'bench',k:'wu',w:20,r:10,hint:'10',done:false},{ex:'bench',k:'wu',w:wu2W(ref),r:4,hint:'4',done:false});ch=true}
+ if(ch){a.sets.forEach(s=>s.i=a.sets.filter(x=>x.ex===s.ex).indexOf(s));save()}}
+fixActive();
 render();
 if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js');
 </script>
