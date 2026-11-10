@@ -170,10 +170,13 @@ function stallWarn(){const wk=wWeeks();if(wk.length<3)return false;const now=ben
  return now&&then&&now.v<=then.v&&wk[wk.length-1].avg<wk[Math.max(0,wk.length-4)].avg}
 /* protein */
 const pDay=d=>(S.protein||{})[d]||[];
-function addP(t,ev){ev&&ev.stopPropagation();S.protein=S.protein||{};(S.protein[today()]=S.protein[today()]||[]).push(t);save();render()}
-function undoP(ev){ev&&ev.stopPropagation();pDay(today()).pop();save();render()}
-function protW(){const a=pDay(today()),tg=+S.settings.proteinPortions,n=a.length;
- return `<div class="row between"><b>Protein today: ${n} / ${tg}</b>${n>=tg?pill(true,'done'):''}</div>
+let PBACK=0;const pDate=()=>addD(today(),-PBACK);
+function pBack(v,ev){ev&&ev.stopPropagation();PBACK=v;render()}
+function addP(t,ev){ev&&ev.stopPropagation();S.protein=S.protein||{};(S.protein[pDate()]=S.protein[pDate()]||[]).push(t);save();render()}
+function undoP(ev){ev&&ev.stopPropagation();pDay(pDate()).pop();save();render()}
+function protW(){const a=pDay(pDate()),tg=+S.settings.proteinPortions,n=a.length;
+ return `<div class="row between"><b>Protein ${PBACK?'yesterday':'today'}: ${n} / ${tg}</b>${n>=tg?pill(true,'done'):''}</div>
+ <div class="seg" style="margin:6px 0">${['Yesterday','Today'].map((t,i)=>`<button class="${PBACK===1-i?'on':''}" onclick="pBack(${1-i},event)">${t}</button>`).join('')}</div>
  <div>${Array.from({length:Math.max(n,tg)},(_,i)=>`<span class="pd ${i<n?'f':''}">${a[i]==='s'?'S':''}</span>`).join('')}</div>
  <div class="row" style="margin-top:8px"><button class="btn w grow" onclick="addP('p',event)">+ Portion</button><button class="btn w grow" onclick="addP('s',event)">+ Shake</button><button class="btn s" onclick="undoP(event)">Undo</button></div>`}
 /* schedule */
@@ -213,7 +216,7 @@ const rateW=(cur,fn)=>`<label>How hard was it? 1 very easy · 10 max effort</lab
 /* ---------- nav ---------- */
 const TABS=[['today','◉','Today'],['strength','▮▮','Strength'],['cardio','➤','Cardio'],['weight','⚖','Weight'],['more','⋯','More']];
 let tab=(location.hash||'#today').slice(1);if(!TABS.some(t=>t[0]===tab))tab='today';if(S.active&&tab==='today')tab='strength';
-function go(t){tab=t;history.replaceState(null,'','#'+t);render();scrollTo(0,0)}
+function go(t){tab=t;PBACK=0;history.replaceState(null,'','#'+t);render();scrollTo(0,0)}
 function render(){$('nav').innerHTML=TABS.map(([k,i,n])=>`<button class="${tab===k?'on':''}" onclick="go('${k}')"><i>${i}</i>${n}</button>`).join('');
  $('app').innerHTML=({today:pToday,strength:pStrength,cardio:pCardio,weight:pWeight,more:pMore})[tab]();tick()}
 
