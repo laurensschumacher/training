@@ -134,7 +134,10 @@ function benchPred(){
  if(A[1]&&t.r<8&&t1.r<8)return{w:r25(t.w*.95),why:'Top set under 8 reps twice in a row: −5%'};
  if(t.r>=10){if(rt>=10)return{w:t.w,why:`Top set ${kg(t.w)} × ${t.r} but rated 10: hold`};return{w:t.w+2.5,why:`Top set ${kg(t.w)} × ${t.r}${rt?' at RPE '+rt:''}: +2.5 kg`}}
  return{w:t.w,why:`Top set ${kg(t.w)} × ${t.r} last time: same weight until you get 10`}}
-function accPred(ex,n){return{ws:Array(n).fill(''),why:'Machines differ per gym, so no weight is suggested. Pick a weight for 12-15 reps at RPE 8.'}}
+function accPred(ex,n){const g=gymDesc().find(x=>setsOf(x,ex).length);
+ if(!g)return{ws:Array(n).fill(''),why:'No history yet. Pick a weight for 12-15 reps at RPE 8.'};
+ const ls=setsOf(g,ex),ws=Array.from({length:n},(_,i)=>(ls[i]||ls[ls.length-1]).w);
+ return{ws,why:`Copied from ${fmtD(g.date)}: ${ls.map(x=>kg(x.w)+'×'+x.r).join(', ')}. Change it if this gym's machine differs.`}}
 function benchEst(days=42,until=today()){const from=addD(until,-days);let best=null;
  S.gym.forEach(g=>{if(g.date<from||g.date>until)return;setsOf(g,'bench').forEach(s=>{if(s.r<=15){const v=est10(g,s);if(!best||v>best.v)best={v,date:g.date}}})});return best}
 function strengthStatus(){const x=xNow(),est=benchEst(),t10=interp(T10,x),bp=benchPred(),tw=t10*.95;
@@ -314,7 +317,7 @@ function pStrength(){if(S.active)return pSession();
  ${chart({series:[{pts:T10,c:'#4ea1ff',dash:1},{pts:est,c:'#4ea1ff',dots:1},{pts:work,c:'#e8eef4',dots:1}],y0:75,y1:105,ticks:3})}
  ${leg([['#4ea1ff','Est. 10RM'],['#e8eef4','Top set'],['#4ea1ff','Dashed: target']])}</div>
  <div class="card"><h2>Next: Chest ${nextT}${TEST.includes(w)?' (test week)':''}</h2>
- <ul>${layout(nextT,w).map(([e,n,h])=>`<li><b>${EX[e].n}</b> ${n} set${n>1?'s':''}: ${e==='bench'?(TEST.includes(w)&&nextT==='A'?'test set':nextT==='A'?kg(bp.w)+' / '+kg(boW(bp.w))+' / '+kg(boW(bp.w))+' kg':'max reps at '+MAXW+' / '+kg(BBW)+' / '+kg(BBW)+' kg'):'weight of your choice'}<div class="sub sm">${esc(h)}</div></li>`).join('')}</ul>
+ <ul>${layout(nextT,w).map(([e,n,h])=>`<li><b>${EX[e].n}</b> ${n} set${n>1?'s':''}: ${e==='bench'?(TEST.includes(w)&&nextT==='A'?'test set':nextT==='A'?kg(bp.w)+' / '+kg(boW(bp.w))+' / '+kg(boW(bp.w))+' kg':'max reps at '+MAXW+' / '+kg(BBW)+' / '+kg(BBW)+' kg'):(a=>a.ws[0]===''?'weight of your choice':a.ws.map(kg).join(' / ')+' kg (same as last time)')(accPred(e,n))}<div class="sub sm">${esc(h)}</div></li>`).join('')}</ul>
  <div class="row"><button class="btn p grow" onclick="startSession('A')">Start Chest A</button><button class="btn grow" onclick="startSession('B')">Start Chest B</button></div>
  <div class="sub sm" style="margin-top:8px">Weights are predictions from your history. You can change them in the session.</div></div>
  <div class="card"><h2>15-week bench targets</h2><table><tr><th>Wk</th><th>10RM target</th><th>Your est.</th></tr>
@@ -487,7 +490,7 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <li>Bench warm-up: 20 × 10, 60 × 4 (about 75% of the top set once it passes 80 kg).</li>
  <li>Chest A: bench top set 1 × 8-10 at RPE 8-9, then 2 back-off sets × 10-12 at 90% (RPE 7-8). Fly 2 × 12-15, machine press 2 × 12-15.</li>
  <li>Chest B: bench warm-up plus 80 × 2, then 1 set of max reps at 100 kg, stopping with 1 rep left (RPE 9), then 2 back-off sets × 8-10 at 80 kg (RPE 7-8). Fly 3 × 12-15, machine press 3 × 10-15.</li>
- <li>Stop 1-2 reps before failure. Fly and machine: no weight suggestions, because machines differ between gyms. Only bench counts for progression and strength.</li>
+ <li>Stop 1-2 reps before failure. Fly and machine: weights are copied from your last session, without progression, because machines differ between gyms. Only bench counts for progression and strength.</li>
  <li>Bench: top set 10+ reps at RPE 9 or easier means +2.5 kg next time. Top set under 8 or rated 10, twice in a row, means −5%.</li>
  <li>Est. 1RM per session: top set weight × (1 + (reps + reps left) / 30), with reps left = 10 − RPE.</li>
  <li>Rate effort (RPE) per exercise. Bench: rate the top set.</li>
@@ -504,7 +507,8 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <button class="btn full" style="color:var(--bad)" onclick="resetAll()">Delete all data</button>`}
 
 /* Sessions started before warm-ups/top sets existed: add the missing warm-ups and labels */
-function fixActive(){const a=S.active;if(!a)return;const b=a.sets.filter(s=>s.ex==='bench');if(!b.length)return;let ch=false;
+function fixActive(){const a=S.active;if(!a)return;
+ ['fly','machine'].forEach(ex=>{const xs=a.sets.filter(s=>s.ex===ex);if(!xs.length||xs.some(s=>s.done||+s.w>0))return;const p=accPred(ex,xs.length);if(p.ws[0]==='')return;xs.forEach((s,i)=>s.w=p.ws[i]);a.why[ex]=p.why;save()});const b=a.sets.filter(s=>s.ex==='bench');if(!b.length)return;let ch=false;
  if(!b.some(s=>s.k)&&!b.some(s=>s.done)){if(a.type==='A'&&!a.test){b[0].k='top';b[0].hint='8-10';b.slice(1).forEach(s=>{s.k='bo';s.hint='10-12';s.w=boW(b[0].w)})}else b.forEach(s=>s.k=a.test&&a.type==='A'?'test':'bo');ch=true}
  if(!b.some(s=>s.k==='wu')){const ref=b.find(s=>s.k==='top'||s.k==='test')?.w||(a.type==='A'?b[0].w:r25(b[0].w/.9)),at=a.sets.indexOf(b[0]);
   a.sets.splice(at,0,{ex:'bench',k:'wu',w:20,r:10,hint:'10',done:false},{ex:'bench',k:'wu',w:wu2W(ref),r:4,hint:'4',done:false});ch=true}
