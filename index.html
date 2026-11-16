@@ -64,8 +64,8 @@ ul{margin:6px 0;padding-left:20px}li{margin:3px 0;font-size:14px}
 <script>
 "use strict";
 const KEY='tracker-v2';
-const DEF={settings:{start:'2026-11-09',topStart:80,restWarm:60,flyStep:2.5,machineStep:5,restBench:150,restFly:60,restMachine:90,kcalStart:2650,startWeight:100,goalWeight:94,proteinPortions:6,proteinG:30},gym:[],runs:[],weights:[],protein:{},creatine:{},moves:{},active:null,timer:null};
-let S=load();
+const DEF={settings:{start:'2026-11-09',topStart:80,restWarm:60,flyStep:2.5,machineStep:5,restBench:150,restFly:60,restMachine:90,kcalStart:2650,startWeight:102,goalWeight:94,proteinPortions:6,proteinG:30},gym:[],runs:[],weights:[],protein:{},creatine:{},moves:{},active:null,timer:null};
+let S=load();if(!S.mig102){if(+S.settings.startWeight===100)S.settings.startWeight=102;S.mig102=1;localStorage.setItem(KEY,JSON.stringify(S))}
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s)return{...JSON.parse(JSON.stringify(DEF)),...s,settings:{...DEF.settings,...s.settings}}}catch(e){}return JSON.parse(JSON.stringify(DEF))}
 function save(){localStorage.setItem(KEY,JSON.stringify(S))}
 
@@ -239,12 +239,17 @@ function cWeight(){const ws=wAsc(),sw=+S.settings.startWeight,gw=+S.settings.goa
  const lo=2*Math.floor((Math.min(gw,...ws.map(x=>x.kg))-1)/2),hi=2*Math.ceil((Math.max(sw,...ws.map(x=>x.kg))+1)/2);
  return chart({series:[{pts:wTgt(),c:'#c792ea',dash:1},{pts,c:'#6b5a80',dots:1},{pts:avg,c:'#c792ea',dots:1}],y0:lo,y1:hi,ticks:(hi-lo)/2})+leg([['#c792ea','Weekly average'],['#6b5a80','Weigh-ins'],['#8b9aab','Dashed: 0.4 kg/week target']])}
 function pOverview(){const ss=strengthStatus(),cs=cardioStatus(),wk=wWeeks(),cw=wk[wk.length-1],wt=cw?interp(wTgt(),cw.w-.5):null;
- const card=(cls,t,pl,kpi,c)=>`<div class="card"><div class="row between"><h2 class="${cls}">${t}</h2>${pl}</div><div class="sub sm" style="margin-bottom:6px">${kpi}</div>${c}</div>`;
- return `<h1>Overview</h1><div class="sub">Actual against target, 2 weeks back to 2 weeks ahead. Swipe a chart for other weeks.</div>
- ${card('run','5k time',cs.est?pill(cs.on,cs.on?'On track':'Behind'):pill(null,'No data'),`Est. ${cs.est?mmss(cs.est.v):'-'} · target now ${mmss(cs.t)}`,c5k())}
- ${card('run','Total time at 4:00/km',cs.h?pill(cs.hOn,cs.hOn?'On track':'Behind'):pill(null,'No data'),`Best session ${cs.h?mmss(cs.h.v):'-'} · target now ${mmss(cs.ht)} · ${cs.n14} runs in 14 days`,cHold())}
- ${card('lift','Bench 10-rep max',ss.est?pill(ss.on,ss.on?'On track':'Behind'):pill(null,'No data'),`Est. ${ss.est?kg(ss.est.v):'-'} kg · target now ${kg(ss.t10)} kg`,cBench())}
- ${card('wt','Weight',cw?pill(cw.avg<=wt+.5,cw.avg<=wt+.5?'On track':'Behind'):pill(null,'No data'),`Week average ${cw?kg(cw.avg):'-'} kg · target ${wt!=null?kg(wt):'-'} kg`,cWeight())}`}
+ const st=(has,ahead,on)=>!has?'<span class="sub">No data</span>':ahead?'<span class="ok"><b>Ahead</b></span>':on?'<span class="ok">On track</span>':'<span class="warn"><b>Behind</b></span>';
+ const rows=[
+  ['5k time',cs.est?mmss(cs.est.v):'-',mmss(cs.t),st(cs.est,cs.est&&cs.est.v<cs.t-10,cs.est&&cs.est.v<=cs.t+10)],
+  ['Time at 4:00/km',cs.h?mmss(cs.h.v):'-',mmss(cs.ht),st(cs.h,cs.h&&cs.h.v>cs.ht+30,cs.h&&cs.h.v>=cs.ht-30)],
+  ['Bench 10RM',ss.est?kg(ss.est.v)+' kg':'-',kg(ss.t10)+' kg',st(ss.est,ss.est&&ss.est.v>ss.t10+1,ss.est&&ss.est.v>=ss.t10-1)],
+  ['Weight (wk avg)',cw?kg(cw.avg)+' kg':'-',wt!=null?kg(wt)+' kg':'-',st(cw,cw&&cw.avg<wt-.5,cw&&cw.avg<=wt+.5)]];
+ const card=(cls,t,c)=>`<div class="card"><h2 class="${cls}">${t}</h2>${c}</div>`;
+ return `<h1>Overview</h1><div class="sub">${fmtD(today())} · ${cs.n14} run${cs.n14===1?'':'s'} in the last 14 days</div>
+ <div class="card"><table><tr><th></th><th>Now</th><th>Target now</th><th>Status</th></tr>${rows.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('')}</table>
+ <div class="sub sm" style="margin-top:6px">On track means within 10 s on the 5k, 30 s on time at pace, 1 kg on bench and 0.5 kg on weight. Charts below show 2 weeks back to 2 weeks ahead; swipe for other weeks.</div></div>
+ ${card('run','5k time',c5k())}${card('run','Total time at 4:00/km',cHold())}${card('lift','Bench 10-rep max',cBench())}${card('wt','Weight',cWeight())}`}
 
 /* ---------- nav ---------- */
 const TABS=[['today','◉','Today'],['overview','▤','Overview'],['strength','▮▮','Strength'],['cardio','➤','Cardio'],['weight','⚖','Weight'],['more','⋯','More']];
