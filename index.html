@@ -64,7 +64,7 @@ ul{margin:6px 0;padding-left:20px}li{margin:3px 0;font-size:14px}
 <script>
 "use strict";
 const KEY='tracker-v2';
-const DEF={settings:{start:'2026-11-09',topStart:80,restWarm:60,flyStep:2.5,machineStep:5,restBench:150,restFly:60,restMachine:90,kcalStart:2650,startWeight:100,goalWeight:94,proteinPortions:6,proteinG:30,runs:3},gym:[],runs:[],weights:[],protein:{},creatine:{},moves:{},active:null,timer:null};
+const DEF={settings:{start:'2026-11-09',topStart:80,restWarm:60,flyStep:2.5,machineStep:5,restBench:150,restFly:60,restMachine:90,kcalStart:2650,startWeight:100,goalWeight:94,proteinPortions:6,proteinG:30},gym:[],runs:[],weights:[],protein:{},creatine:{},moves:{},active:null,timer:null};
 let S=load();
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s)return{...JSON.parse(JSON.stringify(DEF)),...s,settings:{...DEF.settings,...s.settings}}}catch(e){}return JSON.parse(JSON.stringify(DEF))}
 function save(){localStorage.setItem(KEY,JSON.stringify(S))}
@@ -95,16 +95,12 @@ const xEnd=()=>xOf(END),NW=()=>weekOf(END),TAPER=()=>NW()-1;
 const testDate=w=>TESTD.find(d=>weekOf(d)===w)||null,isTest=w=>!!testDate(w);
 const T10=()=>[[xOf(BASE),90],[xEnd(),100]],T5K=()=>[[xOf(BASE),1470],[xEnd(),1200]];
 const STEPS=[
- {t:'4 × 500 m',rest:'2 min walk',n:4},{t:'5 × 500 m',rest:'2 min walk',n:5},{t:'6 × 500 m',rest:'2 min walk',n:6},
- {t:'4 × 800 m',rest:'2 min walk',n:4},{t:'5 × 800 m',rest:'2 min walk',n:5},{t:'4 × 1 km',rest:'2 min walk',n:4},
- {t:'5 × 1 km',rest:'2 min walk',n:5},{t:'5 × 1 km',rest:'90 s jog',n:5},{t:'3 × 1.6 km',rest:'2 min jog',n:3},
- {t:'2 × 2 km + 1 km',rest:'2-3 min jog',n:3},{t:'2 × 2.5 km',rest:'2-3 min jog',n:2}];
-const SAT={1:0,2:1,3:2,4:3,5:'4 × 500 m light, 2 min walk',6:4,7:5,8:6,9:'4 × 800 m light, 2 min walk',10:7,11:8,12:9,13:10,14:'4 × 800 m light, 2 min walk',15:10,16:'4 × 800 m taper, 2 min walk',17:'Rest (final 5k test this week)'};
-function tuePlan(w){const td=testDate(w);if(td){const t=interp(T5K(),xOf(td));return{test:true,txt:'5k test '+fmtD(td)+' · target '+mmss(t),target:t}}
- if(w===TAPER())return{txt:'3 km at 4:10/km (taper)',pace:250,km:3};const p=Math.round(312-60*(w-1)/14);return{txt:'5 km at '+mmss(p)+'/km',pace:p,km:5}}
-function satPlan(w){const v=SAT[w];return typeof v==='number'?{step:v,txt:STEPS[v].t+' on the treadmill at 15.0 km/h (4:00/km), '+STEPS[v].rest}:{txt:v+(w<NW()?', treadmill':''),light:true}}
-const nRuns=()=>+S.settings.runs>=4?4:3,EASYK=()=>nRuns()>=4?['easy','easy2']:['easy'];
-function easyPlan(w,k='easy'){const m=w>=NW()?20:w===TAPER()?25:k==='easy2'?30:w<=4?30:w<=8?35:40;return{min:m,txt:m+' min easy outside, HR 155-165, no pace target'}}
+ {t:'4 × 500 m',rest:'2 min walk',n:4,d:500},{t:'5 × 500 m',rest:'2 min walk',n:5,d:500},{t:'6 × 500 m',rest:'2 min walk',n:6,d:500},
+ {t:'4 × 800 m',rest:'2 min walk',n:4,d:800},{t:'5 × 800 m',rest:'2 min walk',n:5,d:800},{t:'4 × 1 km',rest:'2 min walk',n:4,d:1000},
+ {t:'5 × 1 km',rest:'2 min walk',n:5,d:1000},{t:'5 × 1 km',rest:'90 s jog',n:5,d:1000},{t:'3 × 1.6 km',rest:'2 min jog',n:3,d:1600},
+ {t:'2 × 2 km + 1 km',rest:'2-3 min jog',n:3,d:2000},{t:'2 × 2.5 km',rest:'2-3 min jog',n:2,d:2500},{t:'2 × 3 km',rest:'3 min jog',n:2,d:3000},{t:'4 km + 1 km',rest:'3 min jog',n:2,d:4000}];
+const TP=240,THOLD=()=>[[xOf(BASE),120],[xEnd(),1200]];
+const isRun=r=>r.kind!=='interval';
 const EX={bench:{n:'Bench press',rest:'restBench'},fly:{n:'Fly',rest:'restFly'},machine:{n:'Machine chest press',rest:'restMachine'}};
 function layout(type,w){const t=isTest(w);
  if(type==='A')return t?[['bench',1,'Warm-up 20 × 10, 60 × 4, then the 10-rep max test: one all-out set of 10'],['fly',2,'12-15 reps'],['machine',2,'12-15 reps']]:[['bench',3,'Warm-up 20 × 10, 60 × 4. Top set 1 × 8-10 at RPE 8-9, back-off 2 × 10-12 at RPE 7-8'],['fly',2,'12-15 reps'],['machine',2,'12-15 reps']];
@@ -152,22 +148,21 @@ function strengthStatus(){const x=xNow(),est=benchEst(),t10=interp(T10(),x),bp=b
 const runsDesc=()=>[...S.runs].sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
 const riegel=(sec,km)=>sec*Math.pow(5/km,1.06);
 function runEst(days=42,until=today()){const from=addD(until,-days);let best=null;
- S.runs.forEach(r=>{if(r.date<from||r.date>until||r.kind==='interval'||r.kind==='easy'||!(r.km>=3&&r.sec>0))return;const v=riegel(r.sec,r.km);if(!best||v<best.v)best={v,date:r.date}});return best}
-function steadyNext(){const st=runsDesc().filter(r=>r.kind==='steady'&&r.km>=3&&r.sec>0);
- if(!st.length)return{p:312,why:'Start pace 5:12/km'};const l=st[0],p=l.sec/l.km,rt=l.rating||0;
- if(l.knee>3)return{p:Math.round(p),why:'Knee pain above 3 last run: keep the pace, or run easy'};
- const d=rt>=9?0:rt===8?3:5;return{p:Math.round(p-d),why:`Last ${mmss(p)}/km rated ${rt||'?'}: `+(d?`${d} s faster`:'same pace')}}
-function intNext(){const iv=runsDesc().filter(r=>r.kind==='interval'&&r.step>=0);
- if(!iv.length)return{s:0,why:'Start at 4 × 500 m'};const l=iv[0],rt=l.rating||0;let s=l.step,why;
- if(!l.held||rt>=10){s--;why=(!l.held?'4:00/km not held':'Rated 10')+': one step back'}
+ S.runs.forEach(r=>{if(r.date<from||r.date>until||!isRun(r)||!(r.km>=3&&r.sec>0))return;const v=riegel(r.sec,r.km);if(!best||v<best.v)best={v,date:r.date}});return best}
+const ivStep=r=>r.step>=0?r.step:r.repM>0?Math.max(0,STEPS.map(x=>x.d<=r.repM).lastIndexOf(true)):-1;
+function holdSec(r){if(r.kind==='interval'){if(!r.held)return 0;if(r.repSec>0)return r.repSec;const m=r.repM||(r.step>=0?STEPS[r.step].d:0);return m*TP/1000}
+ return r.km>0&&r.sec>0&&r.sec/r.km<=TP+1?r.sec:0}
+function holdBest(days=42,until=today()){const from=addD(until,-days);let b=null;S.runs.forEach(r=>{if(r.date<from||r.date>until)return;const v=holdSec(r);if(v>0&&(!b||v>b.v))b={v,date:r.date}});return b}
+function intNext(){const iv=runsDesc().filter(r=>r.kind==='interval'&&ivStep(r)>=0);
+ if(!iv.length)return{s:0,why:'Start at 4 × 500 m'};const l=iv[0],rt=l.rating||0;let s=ivStep(l),why;
+ if(!l.held||rt>=10){s--;why=(!l.held?'Target pace not held':'Rated 10')+': one step back'}
  else if(rt>=8){why=`Rated ${rt}: repeat`}else{s++;why=`Rated ${rt||'?'} and pace held: next step`}
  return{s:Math.max(0,Math.min(STEPS.length-1,s)),why}}
-function weekDone(w){const g=S.gym.filter(x=>weekOf(x.date)===w),r=S.runs.filter(x=>weekOf(x.date)===w);
- return{A:g.some(x=>x.type==='A'),B:g.some(x=>x.type==='B'),tue:r.some(x=>x.kind==='steady'||x.kind==='test'),sat:r.some(x=>x.kind==='interval'),easy:r.filter(x=>x.kind==='easy').length>=1,easy2:r.filter(x=>x.kind==='easy').length>=2}}
-function satAdaptive(){const w=curWeek(),start=weekDone(w).sat?w+1:w,n=intNext();let s=n.s;const m={};
- for(let k=start;k<=NW();k++){if(typeof SAT[k]==='number'){m[k]=s;s=Math.min(STEPS.length-1,s+1)}}return m}
-function cardioStatus(){const x=xNow(),est=runEst(),t=interp(T5K(),x),ad=satAdaptive(),nw=Object.keys(ad).map(Number)[0];
- const behind=nw?SAT[nw]-ad[nw]:0;return{est,t,on:est?est.v<=t+10:null,behind,nw}}
+const runs14=()=>S.runs.filter(r=>r.date>addD(today(),-14)&&r.date<=today()).length;
+function weekDone(w){const g=S.gym.filter(x=>weekOf(x.date)===w);return{A:g.some(x=>x.type==='A'),B:g.some(x=>x.type==='B')}}
+function cardioStatus(){const x=xNow(),est=runEst(),t=interp(T5K(),x),h=holdBest(),ht=interp(THOLD(),x);
+ return{est,t,on:est?est.v<=t+10:null,h,ht,hOn:h?h.v>=ht-15:null,n14:runs14()}}
+const nextTest=()=>TESTD.find(d=>d>=today());
 
 /* ---------- weight logic ---------- */
 const wAsc=()=>[...S.weights].sort((a,b)=>a.date.localeCompare(b.date));
@@ -198,11 +193,8 @@ function protW(){const a=pDay(pDate()),tg=+S.settings.proteinPortions,n=a.length
  <div class="row" style="margin-top:8px"><button class="btn w grow" onclick="addP('p',event)">+ Portion</button><button class="btn w grow" onclick="addP('s',event)">+ Shake</button><button class="btn s" onclick="undoP(event)">Undo</button></div>
  <div class="row between" style="margin-top:12px"><b>Creatine ${PBACK?'yesterday':'today'}</b><button class="btn ${S.creatine?.[pDate()]?'p':''}" onclick="togCr(event)">${S.creatine?.[pDate()]?'✓ Taken':'+ 5 g'}</button></div>`}
 /* schedule */
-const SLOT={A:0,tue:1,B:3,sat:5,easy:3,easy2:6};
-function defSlot(w,k){const td=testDate(w);if(td&&(k==='tue'||k==='sat')){const o=(day(td)-day(S.settings.start))/864e5-(w-1)*7;if(k==='tue')return o;if(k==='sat')return o-2>=1?o-2:Math.min(6,o+2)}
- if(td&&(k==='easy'||k==='easy2')){const o=slot(w,'tue'),bad=[o,o-1,slot(w,'sat')];if(k==='easy2')bad.push(slot(w,'easy'));return[SLOT[k],6,3,2,4,5,0,1].find(d=>!bad.includes(d))??SLOT[k]}
- return SLOT[k]}
-const slot=(w,k)=>(S.moves||{})[w+':'+k]??defSlot(w,k);
+const SLOT={A:0,B:3};
+const slot=(w,k)=>(S.moves||{})[w+':'+k]??SLOT[k];
 const slotDate=(w,k)=>addD(S.settings.start,(w-1)*7+slot(w,k));
 function moveS(w,k,v){S.moves=S.moves||{};S.moves[w+':'+k]=+v;save();render()}
 
@@ -245,22 +237,22 @@ function render(){$('nav').innerHTML=TABS.map(([k,i,n])=>`<button class="${tab==
 
 /* ---------- Today ---------- */
 function pToday(){const wk=weekOf(today()),w=curWeek(),pre=wk<1,mon=addD(S.settings.start,(w-1)*7),dn=weekDone(w),td=today();
- const tp=tuePlan(w),sp=satPlan(w),lay=t=>layout(t,w).map(([e,n])=>n+' × '+EX[e].n.toLowerCase().replace('machine chest press','machine')).join(', ');
- const rows=[[slot(w,'A'),'A','Chest A',isTest(w)?'Bench 10RM test, then fly and machine':lay('A'),'strength'],[slot(w,'tue'),'tue',tp.test?'5k test':'Steady run',tp.txt,'cardio'],[slot(w,'B'),'B','Chest B',lay('B'),'strength'],[slot(w,'sat'),'sat','Intervals',sp.txt,'cardio'],...EASYK().map(k=>[slot(w,k),k,'Easy run',easyPlan(w,k).txt,'cardio'])].sort((a,b)=>a[0]-b[0]);
- const gap=(a,b)=>Math.abs(slot(w,a)-slot(w,b)),warns=[gap('A','B')<2&&'Chest A and B are less than 2 days apart.',gap('tue','sat')<2&&'The steady run and intervals are on back-to-back days.',...EASYK().map(k=>slot(w,k)===slot(w,'tue')||slot(w,k)===slot(w,'sat')?'Two runs on the same day.':'')].filter(Boolean);
+ const lay=t=>layout(t,w).map(([e,n])=>n+' × '+EX[e].n.toLowerCase().replace('machine chest press','machine')).join(', ');
+ const rows=[[slot(w,'A'),'A','Chest A',isTest(w)?'Bench 10RM test, then fly and machine':lay('A'),'strength'],[slot(w,'B'),'B','Chest B',lay('B'),'strength']].sort((a,b)=>a[0]-b[0]);
+ const gap=(a,b)=>Math.abs(slot(w,a)-slot(w,b)),warns=[gap('A','B')<2&&'Chest A and B are less than 2 days apart.'].filter(Boolean);
  const ss=strengthStatus(),cs=cardioStatus(),k=kcal();
  return `<h1>${pre?'Starts '+fmtD(S.settings.start):'Week '+w+' of '+NW()}</h1>
  <div class="sub">${pre?(n=>`${n} day${n>1?'s':''} to go. Week 1 shown below.`)(Math.round((day(S.settings.start)-day(td))/864e5)):fmtD(mon)+' to '+fmtD(addD(mon,6))}${isTest(w)?' · <b class="warn">Test week · 5k test '+fmtD(testDate(w))+'</b>':''}</div>
  ${S.active?`<div class="card"><div class="row between"><b>Session in progress: Chest ${S.active.type}</b><button class="btn p s" onclick="go('strength')">Open</button></div></div>`:''}
- <div class="card"><h2>This week</h2>${rows.map(([o,key,n,t,tg])=>{const d=addD(mon,o);return`<div class="day ${d===td?'today':''}" onclick="go('${tg}')"><div class="chk ${dn[key]?'y':''}">${dn[key]?'✓':''}</div><div class="grow"><b>${n}</b> <select class="mv" onclick="event.stopPropagation()" onchange="moveS(${w},'${key}',this.value)">${[0,1,2,3,4,5,6].map(i=>`<option value="${i}" ${i===o?'selected':''}>${fmtD(addD(mon,i))}</option>`).join('')}</select><div class="sub sm">${t}</div></div></div>`}).join('')}${warns.map(x=>`<div class="warn sm" style="margin-top:6px">${x}</div>`).join('')}<div class="sub sm" style="margin-top:6px">Tap a date to move a session within this week.</div></div>
+ <div class="card"><h2>This week</h2>${rows.map(([o,key,n,t,tg])=>{const d=addD(mon,o);return`<div class="day ${d===td?'today':''}" onclick="go('${tg}')"><div class="chk ${dn[key]?'y':''}">${dn[key]?'✓':''}</div><div class="grow"><b>${n}</b> <select class="mv" onclick="event.stopPropagation()" onchange="moveS(${w},'${key}',this.value)">${[0,1,2,3,4,5,6].map(i=>`<option value="${i}" ${i===o?'selected':''}>${fmtD(addD(mon,i))}</option>`).join('')}</select><div class="sub sm">${t}</div></div></div>`}).join('')}${warns.map(x=>`<div class="warn sm" style="margin-top:6px">${x}</div>`).join('')}<div class="sub sm" style="margin-top:6px">Tap a date to move a session within this week. Runs are not scheduled: log them on the Cardio tab whenever you run.</div></div>
  <div class="card" onclick="go('strength')"><div class="row between"><h2 class="lift">Strength</h2>${ss.est?pill(ss.on,ss.on?'On track':'Behind'):pill(null,'No data')}</div>
   <div class="kpi"><div><div class="sub sm">Est. 10-rep max</div><div class="big">${ss.est?kg(ss.est.v):'-'} <span class="sub">/ ${kg(ss.t10)} kg</span></div></div>
   <div><div class="sub sm">Next top set</div><div class="big">${kg(ss.bp.w)} <span class="sub">/ ${kg(r25(ss.tw))} kg</span></div></div></div>
   <div class="bar"><i style="width:${Math.min(100,((ss.est?.v||70)-70)/30*100)}%;background:var(--lift)"></i></div><div class="sub sm">Goal 10 × 100 kg</div></div>
  <div class="card" onclick="go('cardio')"><div class="row between"><h2 class="run">Cardio</h2>${cs.est?pill(cs.on,cs.on?'On track':'Behind'):pill(null,'No data')}</div>
   <div class="kpi"><div><div class="sub sm">Est. 5k</div><div class="big">${cs.est?mmss(cs.est.v):'-'} <span class="sub">/ ${mmss(cs.t)}</span></div></div>
-  <div><div class="sub sm">Intervals</div><div class="big" style="font-size:18px">${cs.behind>0?`<span class="warn">${cs.behind} step${cs.behind>1?'s':''} behind</span>`:'<span class="ok">On plan</span>'}</div></div></div>
-  <div class="bar"><i style="width:${Math.min(100,Math.max(0,(1500-(cs.est?.v||1500))/300*100))}%;background:var(--run)"></i></div><div class="sub sm">Goal sub-20:00</div></div>
+  <div><div class="sub sm">Time at 4:00/km</div><div class="big">${cs.h?mmss(cs.h.v):'-'} <span class="sub">/ ${mmss(cs.ht)}</span></div></div></div>
+  <div class="bar"><i style="width:${Math.min(100,Math.max(0,(1500-(cs.est?.v||1500))/300*100))}%;background:var(--run)"></i></div><div class="sub sm">Goal sub-20:00 · ${cs.n14} run${cs.n14===1?'':'s'} in the last 14 days${nextTest()?' · next 5k test '+fmtD(nextTest()):''}</div></div>
  <div class="card" onclick="go('weight')"><div class="row between"><h2 class="wt">Weight & nutrition</h2>${k.rate==null?pill(null,'Weigh in'):pill(k.rate>=.25&&k.rate<=.75,(k.rate>=0?'−':'+')+Math.abs(k.rate).toFixed(2)+' kg/wk')}</div>
   <div class="kpi"><div><div class="sub sm">Weight</div><div class="big">${kg(k.cur)} <span class="sub">kg</span></div></div>
   <div><div class="sub sm">Daily target</div><div class="big" style="font-size:20px">${k.k} kcal</div></div></div><div style="margin-top:10px">${protW()}</div></div>`}
@@ -339,9 +331,7 @@ function pStrength(){if(S.active)return pSession();
 
 /* ---------- Cardio ---------- */
 let F=null,IMP=null,OCR=null;
-function newRunForm(){const w=curWeek(),dn=weekDone(w),dow=day(today()).getDay(),tp=tuePlan(w);
- let kind=EASYK().some(k=>slotDate(w,k)===today())?'easy':slotDate(w,'sat')===today()||(dn.tue&&!dn.sat)?'interval':tp.test?'test':'steady';const sp=satPlan(w);
- F={kind,date:today(),km:kind==='interval'?'':(tp.km||5),time:'',step:sp.light?-1:intNext().s,reps:'',held:true,knee:'',rating:null,note:'',splits:null,hr:null}}
+function newRunForm(){F={kind:'run',date:today(),km:'',time:'',step:intNext().s,rep:'',reps:'',held:true,knee:'',rating:null,note:'',splits:null,hr:null}}
 function rf(k,v){F[k]=v;if(k==='kind'||k==='step'||k==='held')render()}
 function rRate(i){F.rating=i;render()}
 function saveRun(){const km=+String(F.km).replace(',','.'),sec=parseT(F.time);
@@ -349,7 +339,8 @@ function saveRun(){const km=+String(F.km).replace(',','.'),sec=parseT(F.time);
  if(!F.rating&&!confirm('No rating yet. Save anyway?'))return;
  const r={id:uid(),ts:Date.now(),kind:F.kind,date:F.date,km:km||null,sec:sec>0?sec:null,rating:F.rating,note:F.note,knee:F.knee===''?null:+F.knee};
  if(F.splits?.length)r.splits=F.splits;if(F.hr)r.hr=F.hr;
- if(F.kind==='interval'){r.step=+F.step;r.reps=F.reps===''?(r.step>=0?STEPS[r.step].n:null):+F.reps;r.held=!!F.held}
+ if(F.kind==='interval'){const st=STEPS[+F.step],rp=String(F.rep).trim();r.step=+F.step;r.reps=F.reps===''?st.n:+F.reps;r.held=!!F.held;
+  if(rp.includes(':')){r.repSec=parseT(rp);r.step=-1}else r.repM=+rp.replace(',','.')>0?+rp.replace(',','.')*(+rp.replace(',','.')<20?1000:1):st.d;if(!rp.includes(':')&&r.repM!==st.d)r.step=-1}
  S.runs.push(r);save();F=null;OCR=null;render();scrollTo(0,0)}
 function delRun(id){if(confirm('Delete this run?')){S.runs=S.runs.filter(r=>r.id!==id);save();render()}}
 function parseDateAny(s){s=s.trim();let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
@@ -403,21 +394,21 @@ async function shotImport(inp){const files=[...inp.files];inp.value='';if(!files
   OCR={txt,res,ok:!!(res.km||res.sec||res.splits.length)}}
  catch(e){OCR={err:e.message||String(e)}}render()}
 const splitTxt=sp=>sp.map(x=>mmss(x.p)).join(' · ');
-function pCardio(){if(!F)newRunForm();const w=curWeek(),tp=tuePlan(w),sp=satPlan(w),sn=steadyNext(),inx=intNext(),ad=satAdaptive(),cs=cardioStatus(),dn=weekDone(w);
- const nsw=dn.tue?Math.min(NW(),w+1):w,ntp=tuePlan(nsw);
- const est=[],tests=[];[...S.runs].sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{if(r.kind==='interval'||r.kind==='easy'||!(r.km>=3&&r.sec>0))return;(r.kind==='test'?tests:est).push([xOf(r.date),riegel(r.sec,r.km)])});
+function pCardio(){if(!F)newRunForm();const inx=intNext(),cs=cardioStatus(),nt=nextTest();
+ const est=[],tests=[],hold=[];[...S.runs].sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{const h=holdSec(r);if(h>0)hold.push([xOf(r.date),h/60]);if(!isRun(r)||!(r.km>=3&&r.sec>0))return;(r.kind==='test'?tests:est).push([xOf(r.date),riegel(r.sec,r.km)])});
  const pace=F.km&&parseT(F.time)>0?parseT(F.time)/+String(F.km).replace(',','.'):null;
- return `<h1>Cardio</h1><div class="sub">Goal: 5k under 20:00 by 3 March · bike commute counts as easy volume</div>
- <div class="card"><div class="row between"><h2>Status</h2>${cs.est?pill(cs.on,cs.on?'On track':'Behind target'):''}</div>
- <div class="kpi"><div><div class="sub sm">Est. 5k (6 wks)</div><div class="big">${cs.est?mmss(cs.est.v):'-'}</div><div class="sub sm">Target now ${mmss(cs.t)}</div></div>
- <div><div class="sub sm">Interval progression</div><div class="big" style="font-size:20px">${cs.behind>0?`<span class="warn">${cs.behind} behind</span>`:cs.behind<0?`<span class="ok">${-cs.behind} ahead</span>`:'<span class="ok">On plan</span>'}</div></div></div>
+ return `<h1>Cardio</h1><div class="sub">Goal: 5k under 20:00 by 3 March · ${cs.n14} run${cs.n14===1?'':'s'} in the last 14 days</div>
+ <div class="card"><div class="row between"><h2>5k time</h2>${cs.est?pill(cs.on,cs.on?'On track':'Behind target'):''}</div>
+ <div class="kpi"><div><div class="sub sm">Est. 5k (best, 6 wks)</div><div class="big">${cs.est?mmss(cs.est.v):'-'}</div><div class="sub sm">Target now ${mmss(cs.t)}</div></div>
+ <div><div class="sub sm">Next 5k test</div><div class="big" style="font-size:20px">${nt?fmtD(nt):'-'}</div><div class="sub sm">${nt?'Target '+mmss(interp(T5K(),xOf(nt))):''}</div></div></div>
  ${chart({series:[{pts:T5K(),c:'#3ecf8e',dash:1},{pts:est,c:'#3ecf8e',dots:1},{pts:tests,c:'#ffb454',dots:1}],y0:1620,y1:1140,fmt:mmss,ticks:4})}
- ${leg([['#3ecf8e','5k estimate from steady runs'],['#ffb454','5k tests'],['#8b9aab','Dashed: target']])}</div>
- <div class="card"><h2>Next runs</h2>
- <div class="it"><b>${ntp.test?'5k test':'Steady run'}</b> <span class="sub sm">week ${nsw}</span><div>${ntp.test?ntp.txt:`Plan ${mmss(ntp.pace)}/km · suggested <b>${mmss(nsw===TAPER()?Math.min(sn.p,250):sn.p)}/km</b> ${sn.p<=ntp.pace+2?pill(true,'on track'):pill(false,'slower than plan')}`}</div><div class="sub sm">${ntp.test?'Replaces the steady run. Warm up 10 min easy first.':'↳ '+sn.why+(nsw===TAPER()?'. Taper: 3 km only.':'')}</div></div>
- <div class="it"><b>Intervals</b> <span class="sub sm">week ${dn.sat?Math.min(NW(),w+1):w}</span>${(()=>{const nw=dn.sat?Math.min(NW(),w+1):w,p=satPlan(nw);return p.light?`<div>${p.txt}</div>`:`<div>Plan ${STEPS[p.step].t} · suggested <b>${STEPS[ad[nw]].t}</b>, ${STEPS[ad[nw]].rest}, treadmill at 15.0 km/h (4:00/km), 1% incline</div><div class="sub sm">↳ ${inx.why}</div>`})()}</div>
- ${(()=>{const ne=EASYK().filter(k=>!dn[k]).length,ew=ne?w:Math.min(NW(),w+1),n=ne||nRuns()-2,e=easyPlan(ew);return`<div class="it"><b>Easy run${nRuns()>3?'s':''}</b> <span class="sub sm">week ${ew} · ${n} left</span><div>${e.txt}</div><div class="sub sm">Talking pace. Short quick steps, cadence 160-165. Slow down or walk if HR goes above 165.</div></div>`})()}
- <div class="sub sm" style="margin-top:6px">Add 5-10 min easy jog before and after steady runs and intervals. Knee pain above 3/10 or swelling next day: run easy instead.</div></div>
+ ${leg([['#3ecf8e','5k estimate from runs of 3 km or more'],['#ffb454','5k tests'],['#8b9aab','Dashed: target']])}</div>
+ <div class="card"><div class="row between"><h2>Time at 4:00/km</h2>${cs.h?pill(cs.hOn,cs.hOn?'On track':'Behind target'):''}</div>
+ <div class="kpi"><div><div class="sub sm">Longest held (6 wks)</div><div class="big">${cs.h?mmss(cs.h.v):'-'}</div><div class="sub sm">Target now ${mmss(cs.ht)}</div></div>
+ <div><div class="sub sm">Next intervals</div><div class="big" style="font-size:18px">${STEPS[inx.s].t}</div><div class="sub sm">${STEPS[inx.s].rest} · ${inx.why}</div></div></div>
+ ${chart({series:[{pts:THOLD().map(([x,y])=>[x,y/60]),c:'#ffb454',dash:1},{pts:hold,c:'#ffb454',dots:1}],y0:0,y1:20,fmt:v=>v+' min',ticks:4})}
+ ${leg([['#ffb454','Longest stretch at 4:00/km or faster'],['#8b9aab','Dashed: target, 20:00 = sub-20 5k']])}
+ <div class="sub sm" style="margin-top:6px">Counts the longest rep where you held 4:00/km (treadmill 15.0 km/h), or a whole run at that pace. Rating 7 or lower with pace held is the next step, 8-9 repeats, 10 or pace missed is a step back.</div></div>
  <div class="card"><div class="row between"><h2>Log a run</h2><div class="row"><label class="btn s r" style="margin:0;color:#06121f">Screenshot<input type="file" accept="image/*" multiple style="display:none" onchange="shotImport(this)"></label><button class="btn s" onclick="importClip()">Paste</button></div></div>
  ${OCR?`<div class="card" style="background:var(--card2)">${OCR.busy?`<div class="sub sm" id="ocrmsg">${esc(OCR.msg)}</div>`:OCR.err?`<div class="bad sm">Could not read the screenshot: ${esc(OCR.err)}</div>`:
   `<div class="sm ${OCR.ok?'ok':'warn'}">${OCR.ok?'Filled in from the screenshot. Check the numbers before saving.':'Could not find distance, time or splits. Try the Workout Details or Splits screen.'}</div>
@@ -427,12 +418,13 @@ function pCardio(){if(!F)newRunForm();const w=curWeek(),tp=tuePlan(w),sp=satPlan
  <div class="sub sm">Screenshot: Fitness app on iPhone, the run's Workout Details and Splits. You can pick several at once.</div>
  ${IMP?`<div class="card" style="background:var(--card2)">${IMP.list.length?'<div class="sub sm">Pick the run to fill the form:</div>'+IMP.list.map((r,i)=>`<button class="btn pick" onclick="impPick(${i})">${fmtD(r.date)} · ${r.km} km · ${mmss(r.sec)} · ${mmss(r.sec/r.km)}/km</button>`).join(''):'<div class="sub sm">Nothing readable on the clipboard. Run the Shortcut first, or paste its output here (one line per run: date;km;seconds).</div>'}
   <textarea id="imptxt" placeholder="2026-11-10;5.02;1561">${esc(IMP.txt)}</textarea><div class="row" style="margin-top:6px"><button class="btn s" onclick="impParse()">Read</button><button class="btn s" onclick="IMP=null;render()">Close</button></div></div>`:''}
- <div class="seg" style="margin-top:8px">${[['steady','Steady'],['interval','Intervals'],['test','5k test'],['easy','Easy']].map(([k,n])=>`<button class="${F.kind===k?'on':''}" onclick="rf('kind','${k}')">${n}</button>`).join('')}</div>
+ <div class="seg" style="margin-top:8px">${[['run','Run'],['interval','Intervals'],['test','5k test']].map(([k,n])=>`<button class="${F.kind===k?'on':''}" onclick="rf('kind','${k}')">${n}</button>`).join('')}</div>
  <label>Date</label><input type="date" value="${F.date}" onchange="rf('date',this.value)">
- ${F.kind==='interval'?`<label>Session</label><select onchange="rf('step',this.value)">${STEPS.map((s,i)=>`<option value="${i}" ${+F.step===i?'selected':''}>${i+1}. ${s.t}, ${s.rest}</option>`).join('')}<option value="-1" ${+F.step===-1?'selected':''}>Light / taper week</option></select>
-  <div class="row"><div class="grow"><label>Reps completed</label><input inputmode="numeric" value="${F.reps}" placeholder="${+F.step>=0?STEPS[+F.step].n:''}" oninput="rf('reps',this.value)"></div>
-  <div class="grow"><label>Held 4:00/km on all reps?</label><div class="seg"><button class="${F.held?'on':''}" onclick="rf('held',true)">Yes</button><button class="${!F.held?'on':''}" onclick="rf('held',false)">No</button></div></div></div>
-  <div class="sub sm" style="margin-top:6px">Distance and time are optional here. Watch totals include the walking, so total pace says little.</div>`:''}
+ ${F.kind==='interval'?`<label>Session (suggested: ${STEPS[inx.s].t})</label><select onchange="rf('step',this.value)">${STEPS.map((s,i)=>`<option value="${i}" ${+F.step===i?'selected':''}>${s.t}, ${s.rest}</option>`).join('')}</select>
+  <div class="row"><div class="grow"><label>Rep length (m or mm:ss)</label><input inputmode="text" value="${esc(F.rep)}" placeholder="${STEPS[+F.step].d}" oninput="rf('rep',this.value)"></div>
+  <div class="grow"><label>Reps done</label><input inputmode="numeric" value="${F.reps}" placeholder="${STEPS[+F.step].n}" oninput="rf('reps',this.value)"></div></div>
+  <label>Held 4:00/km on every rep?</label><div class="seg"><button class="${F.held?'on':''}" onclick="rf('held',true)">Yes</button><button class="${!F.held?'on':''}" onclick="rf('held',false)">No</button></div>
+  <div class="sub sm" style="margin-top:6px">Leave rep length empty to use the session's. Distance and time are optional here: totals include the walking.</div>`:''}
  <div class="row"><div class="grow"><label>Distance (km)</label><input inputmode="decimal" value="${F.km??''}" oninput="rf('km',this.value)"></div>
  <div class="grow"><label>Time (mm:ss)</label><input inputmode="text" value="${F.time}" placeholder="25:40" oninput="rf('time',this.value)"></div></div>
  ${F.splits?.length?`<label>Splits (min/km)${F.hr?' · avg '+F.hr+' bpm':''}</label><div class="sm">${splitTxt(F.splits)} <button class="x" onclick="F.splits=null;F.hr=null;render()">✕</button></div>`:''}
@@ -440,13 +432,10 @@ function pCardio(){if(!F)newRunForm();const w=curWeek(),tp=tuePlan(w),sp=satPlan
  <label>Knee pain during or after (0-10, optional)</label><input inputmode="numeric" value="${F.knee}" oninput="rf('knee',this.value)">
  ${rateW(F.rating,'rRate')}<label>Note</label><textarea oninput="rf('note',this.value)">${esc(F.note)}</textarea>
  <button class="btn r full" onclick="saveRun()">Save run</button></div>
- <div class="card"><h2>Plan to 3 March</h2><table><tr><th>Wk</th><th>Steady</th><th>Intervals · 4:00/km</th></tr>
- ${Array.from({length:NW()},(_,i)=>i+1).map(k=>{const t=tuePlan(k),s=satPlan(k),d=weekDone(k),a=ad[k];
-  return`<tr class="${k===w?'cur':''} ${t.test?'test':''}"><td>${k}</td><td>${d.tue?'✓ ':''}${t.test?'<b>5k test</b> '+fmtD(testDate(k)).replace(/^\w+ /,'')+' · '+mmss(t.target):k===TAPER()?'3 km @ 4:10':'5k @ '+mmss(t.pace)}</td>
-  <td>${d.sat?'✓ ':''}${s.light?esc(s.txt):STEPS[s.step].t+'<span class="sub">, '+STEPS[s.step].rest+'</span>'}${a!=null&&a!==s.step?`<div class="warn sm">Adapted: ${STEPS[a].t}</div>`:''}</td></tr>`}).join('')}</table>
- <div class="sub sm" style="margin-top:6px">Steady pace drops about 4 s/km a week. Rating 8 means 3 s, 9-10 means hold. Easy runs: 30 min, 35 from week 5, 40 from week 9. The 4th run (if set to 4 a week) stays at 30 min. Intervals: rating 7 or lower with pace held is the next step, 8-9 repeats, 10 or pace missed is a step back.</div></div>
- <div class="card"><h2>History</h2>${runsDesc().map(r=>`<div class="it"><div class="row between"><b>${fmtD(r.date)} · ${({steady:'Steady',interval:'Intervals',test:'5k test',easy:'Easy'})[r.kind]}</b><span>${r.rating?'Rated '+r.rating:''}<button class="x" onclick="delRun('${r.id}')">✕</button></span></div>
- <div class="sub sm">${r.kind==='interval'?(r.step>=0?STEPS[r.step].t:'Light')+` · ${r.reps??'?'} reps · pace ${r.held?'held':'<span class="warn">not held</span>'}`:`${r.km} km · ${mmss(r.sec)} · ${mmss(r.sec/r.km)}/km`}${r.hr?` · ${r.hr} bpm`:''}${r.knee!=null?` · knee ${r.knee}/10`:''}</div>${r.splits?.length?`<div class="sub sm">Splits: ${splitTxt(r.splits)}</div>`:''}${r.note?`<div class="sub sm"><i>${esc(r.note)}</i></div>`:''}</div>`).join('')||'<div class="sub">No runs yet.</div>'}</div>`}
+ <div class="card"><h2>Test days</h2><table><tr><th>Date</th><th>5k target</th><th>At 4:00/km</th><th>Your 5k</th></tr>
+ ${TESTD.map(d=>{const r=S.runs.filter(x=>x.kind==='test'&&Math.abs((day(x.date)-day(d))/864e5)<=3).sort((a,b)=>a.sec-b.sec)[0],t=interp(T5K(),xOf(d));return`<tr class="${d===nt?'cur':''}"><td>${fmtD(d)}</td><td>${mmss(t)}</td><td>${mmss(interp(THOLD(),xOf(d)))}</td><td class="${r?r.sec<=t?'ok':'warn':''}">${r?mmss(riegel(r.sec,r.km)):''}</td></tr>`}).join('')}</table></div>
+ <div class="card"><h2>History</h2>${runsDesc().map(r=>`<div class="it"><div class="row between"><b>${fmtD(r.date)} · ${({interval:'Intervals',test:'5k test'})[r.kind]||'Run'}</b><span>${r.rating?'Rated '+r.rating:''}<button class="x" onclick="delRun('${r.id}')">✕</button></span></div>
+ <div class="sub sm">${r.kind==='interval'?(r.step>=0?STEPS[r.step].t:(r.reps??'?')+' × '+(r.repSec?mmss(r.repSec):r.repM?r.repM+' m':'?'))+` · ${r.reps??'?'} reps done · pace ${r.held?'held':'<span class="warn">not held</span>'}`:`${r.km} km · ${mmss(r.sec)} · ${mmss(r.sec/r.km)}/km`}${r.hr?` · ${r.hr} bpm`:''}${r.knee!=null?` · knee ${r.knee}/10`:''}</div>${r.splits?.length?`<div class="sub sm">Splits: ${splitTxt(r.splits)}</div>`:''}${r.note?`<div class="sub sm"><i>${esc(r.note)}</i></div>`:''}</div>`).join('')||'<div class="sub">No runs yet.</div>'}</div>`}
 
 /* ---------- Weight ---------- */
 function saveW(){const d=$('wd').value,v=+$('wk').value.replace(',','.');if(!(v>40)){alert('Enter your weight.');return}
@@ -477,7 +466,7 @@ function pWeight(){const k=kcal(),ws=wAsc(),sw=+S.settings.startWeight,gw=+S.set
  ${k.log.length?`<h3>Calorie adjustments</h3>${k.log.slice(-5).reverse().map(l=>`<div class="sub sm">${l.w<1?'Before start':'Week '+l.w}: ${l.rate>=0?'−':'+'}${Math.abs(l.rate).toFixed(2)} kg/wk → ${l.d?(l.d>0?'+':'')+l.d+' kcal, ':''}${l.k} kcal</div>`).join('')}`:''}</div>`}
 
 /* ---------- More ---------- */
-const SET=[['start','Week 1 starts (Monday)','date'],['topStart','Bench top set start (kg)'],['flyStep','Fly weight step (kg)'],['machineStep','Machine press step (kg)'],['restWarm','Rest after warm-up set (s)'],['restBench','Rest bench (s)'],['restFly','Rest fly (s)'],['restMachine','Rest machine (s)'],['kcalStart','Starting kcal'],['startWeight','Start body weight (kg)'],['goalWeight','Goal body weight (kg)'],['proteinPortions','Protein portions per day'],['proteinG','Grams per portion (estimate)'],['runs','Runs per week (3 or 4)']];
+const SET=[['start','Week 1 starts (Monday)','date'],['topStart','Bench top set start (kg)'],['flyStep','Fly weight step (kg)'],['machineStep','Machine press step (kg)'],['restWarm','Rest after warm-up set (s)'],['restBench','Rest bench (s)'],['restFly','Rest fly (s)'],['restMachine','Rest machine (s)'],['kcalStart','Starting kcal'],['startWeight','Start body weight (kg)'],['goalWeight','Goal body weight (kg)'],['proteinPortions','Protein portions per day'],['proteinG','Grams per portion (estimate)']];
 function saveSet(){SET.forEach(([k,,t])=>{const v=$('s_'+k).value;S.settings[k]=t==='date'?v:+String(v).replace(',','.')});save();alert('Saved');render()}
 async function exportData(){const txt=JSON.stringify(S,null,1),name=`training-backup-${today()}.json`;
  try{const f=new File([txt],name,{type:'application/json'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){if(e.name==='AbortError')return}
@@ -508,11 +497,13 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <li>10-rep max targets, a straight line from 90 kg on 10 Nov to 100 kg on 3 Mar: 92.6 on 10 Dec, 95.4 on 10 Jan, 98.1 on 10 Feb. Top set target is 95% of this.</li>
  <li>Test weeks (10 Dec, 10 Jan, 10 Feb, 3 Mar): Chest A is an all-out 10-rep set, Chest B is easy at half the sets, without the 100 kg set.</li>
  <li>No triceps isolation unless the lockout stalls.</li><li>Move sessions on the Today screen. Keep at least 2 days between Chest A and B, and a day between the steady run and intervals.</li></ul>
- <h3 class="run">Running · default Tue, Thu and Sat (4th run Sun)</h3><ul>
- <li>Tue: steady 5k, from 5:12/km down about 4 s/km a week. In test weeks it is replaced by a 5k test on the test day.</li>
+ <h3 class="run">Running · any day, 1 to 4 times a week</h3><ul>
+ <li>No fixed run days. Tap Run, Intervals or 5k test on the Cardio tab and add a screenshot or fill it in.</li>
+ <li>Two things are tracked: your 5k time (estimated from any run of 3 km or more, plus the tests) and the longest time you can hold 4:00/km. Sub-20 means holding 4:00/km for 20 minutes.</li>
  <li>5k targets, a straight line from 24:30 on 10 Nov to 20:00 on 3 Mar: 23:18 on 10 Dec, 22:04 on 10 Jan, 20:50 on 10 Feb.</li>
- <li>Thu: easy run outside by heart rate (155-165), 30 to 40 min. Doesn't count for the 5k estimate. Set Runs per week to 4 in Settings for a 2nd easy run on Sun.</li>
- <li>Sat: intervals on the treadmill at 15.0 km/h (4:00/km), 1% incline, from 4 × 500 m to 2 × 2.5 km.</li>
+ <li>Time at 4:00/km targets, a straight line from 2:00 on 10 Nov to 20:00 on 3 Mar.</li>
+ <li>Intervals on the treadmill at 15.0 km/h, 1% incline, from 4 × 500 m upward. The app suggests the next session from your last one.</li>
+ <li>Other runs: easy by heart rate (155-165), cadence 160-165.</li>
  <li>Log runs from a Fitness app screenshot (Workout Details and Splits). The text is read on the phone, nothing is uploaded.</li>
  <li>Easy jog warm-up and cool-down. The bike commute is your easy volume.</li>
  <li>Get physio clearance for 4:00/km on the knee. Pain above 3/10 or next-day swelling: run easy.</li></ul>
