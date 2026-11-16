@@ -99,7 +99,7 @@ const STEPS=[
  {t:'4 × 800 m',rest:'2 min walk',n:4,d:800},{t:'5 × 800 m',rest:'2 min walk',n:5,d:800},{t:'4 × 1 km',rest:'2 min walk',n:4,d:1000},
  {t:'5 × 1 km',rest:'2 min walk',n:5,d:1000},{t:'5 × 1 km',rest:'90 s jog',n:5,d:1000},{t:'3 × 1.6 km',rest:'2 min jog',n:3,d:1600},
  {t:'2 × 2 km + 1 km',rest:'2-3 min jog',n:3,d:2000},{t:'2 × 2.5 km',rest:'2-3 min jog',n:2,d:2500},{t:'2 × 3 km',rest:'3 min jog',n:2,d:3000},{t:'4 km + 1 km',rest:'3 min jog',n:2,d:4000}];
-const TP=240,THOLD=()=>[[xOf(BASE),120],[xEnd(),1200]];
+const TP=240,THOLD=()=>[[xOf(BASE),480],[xEnd(),1440]];
 const isRun=r=>r.kind!=='interval';
 const EX={bench:{n:'Bench press',rest:'restBench'},fly:{n:'Fly',rest:'restFly'},machine:{n:'Machine chest press',rest:'restMachine'}};
 function layout(type,w){const t=isTest(w);
@@ -150,7 +150,7 @@ const riegel=(sec,km)=>sec*Math.pow(5/km,1.06);
 function runEst(days=42,until=today()){const from=addD(until,-days);let best=null;
  S.runs.forEach(r=>{if(r.date<from||r.date>until||!isRun(r)||!(r.km>=3&&r.sec>0))return;const v=riegel(r.sec,r.km);if(!best||v<best.v)best={v,date:r.date}});return best}
 const ivStep=r=>r.step>=0?r.step:r.repM>0?Math.max(0,STEPS.map(x=>x.d<=r.repM).lastIndexOf(true)):-1;
-function holdSec(r){if(r.kind==='interval'){if(!r.held)return 0;if(r.repSec>0)return r.repSec;const m=r.repM||(r.step>=0?STEPS[r.step].d:0);return m*TP/1000}
+function holdSec(r){if(r.kind==='interval'){const n=r.reps??(r.step>=0?STEPS[r.step].n:0);if(r.repSec>0)return n*r.repSec;const m=r.repM||(r.step>=0?STEPS[r.step].d:0);return n*m*TP/1000}
  return r.km>0&&r.sec>0&&r.sec/r.km<=TP+1?r.sec:0}
 function holdBest(days=42,until=today()){const from=addD(until,-days);let b=null;S.runs.forEach(r=>{if(r.date<from||r.date>until)return;const v=holdSec(r);if(v>0&&(!b||v>b.v))b={v,date:r.date}});return b}
 function intNext(){const iv=runsDesc().filter(r=>r.kind==='interval'&&ivStep(r)>=0);
@@ -161,7 +161,7 @@ function intNext(){const iv=runsDesc().filter(r=>r.kind==='interval'&&ivStep(r)>
 const runs14=()=>S.runs.filter(r=>r.date>addD(today(),-14)&&r.date<=today()).length;
 function weekDone(w){const g=S.gym.filter(x=>weekOf(x.date)===w);return{A:g.some(x=>x.type==='A'),B:g.some(x=>x.type==='B')}}
 function cardioStatus(){const x=xNow(),est=runEst(),t=interp(T5K(),x),h=holdBest(),ht=interp(THOLD(),x);
- return{est,t,on:est?est.v<=t+10:null,h,ht,hOn:h?h.v>=ht-15:null,n14:runs14()}}
+ return{est,t,on:est?est.v<=t+10:null,h,ht,hOn:h?h.v>=ht-30:null,n14:runs14()}}
 const nextTest=()=>TESTD.find(d=>d>=today());
 
 /* ---------- weight logic ---------- */
@@ -228,12 +228,30 @@ function chartScroll(){document.querySelectorAll('.chs').forEach(e=>e.scrollLeft
 const leg=items=>`<div class="leg">${items.map(([c,t])=>`<span style="--c:${c}">${t}</span>`).join('')}</div>`;
 const rateW=(cur,fn)=>`<label>How hard was it? 1 very easy · 10 max effort</label><div class="rate">${[1,2,3,4,5,6,7,8,9,10].map(i=>`<button class="${cur===i?'on':''}" onclick="${fn}(${i})">${i}</button>`).join('')}</div>`;
 
+/* ---------- shared charts ---------- */
+function cBench(){const est=[],work=[];gymDesc().reverse().forEach(g=>{const b=setsOf(g,'bench');if(!b.length)return;est.push([xOf(g.date),Math.max(...b.filter(s=>s.r<=15).map(s=>est10(g,s)),0)]);if(g.type==='A'&&!g.test)work.push([xOf(g.date),topOf(g).w])});
+ return chart({series:[{pts:T10(),c:'#4ea1ff',dash:1},{pts:est,c:'#4ea1ff',dots:1},{pts:work,c:'#e8eef4',dots:1}],y0:75,y1:105,ticks:3})+leg([['#4ea1ff','Est. 10RM'],['#e8eef4','Top set'],['#4ea1ff','Dashed: target']])}
+function runPts(){const est=[],tests=[],hold=[];[...S.runs].sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{const h=holdSec(r);if(h>0)hold.push([xOf(r.date),h/60]);if(!isRun(r)||!(r.km>=3&&r.sec>0))return;(r.kind==='test'?tests:est).push([xOf(r.date),riegel(r.sec,r.km)])});return{est,tests,hold}}
+function c5k(){const{est,tests}=runPts();return chart({series:[{pts:T5K(),c:'#3ecf8e',dash:1},{pts:est,c:'#3ecf8e',dots:1},{pts:tests,c:'#ffb454',dots:1}],y0:1620,y1:1140,fmt:mmss,ticks:4})+leg([['#3ecf8e','5k estimate from runs of 3 km or more'],['#ffb454','5k tests'],['#8b9aab','Dashed: target']])}
+function cHold(){const{hold}=runPts();return chart({series:[{pts:THOLD().map(([x,y])=>[x,y/60]),c:'#ffb454',dash:1},{pts:hold,c:'#ffb454',dots:1}],y0:0,y1:30,fmt:v=>v+' min',ticks:3})+leg([['#ffb454','Total per session at 4:00/km or faster'],['#8b9aab','Dashed: target']])}
+function wTgt(){const sw=+S.settings.startWeight,gw=+S.settings.goalWeight,xe=xEnd();return[[0,sw],[Math.min(xe,(sw-gw)/.4),Math.max(gw,sw-.4*xe)],[xe,Math.max(gw,sw-.4*xe)]]}
+function cWeight(){const ws=wAsc(),sw=+S.settings.startWeight,gw=+S.settings.goalWeight,pts=ws.map(x=>[xOf(x.date),x.kg]),avg=wWeeks().map(x=>[x.w-.5,x.avg]);
+ const lo=2*Math.floor((Math.min(gw,...ws.map(x=>x.kg))-1)/2),hi=2*Math.ceil((Math.max(sw,...ws.map(x=>x.kg))+1)/2);
+ return chart({series:[{pts:wTgt(),c:'#c792ea',dash:1},{pts,c:'#6b5a80',dots:1},{pts:avg,c:'#c792ea',dots:1}],y0:lo,y1:hi,ticks:(hi-lo)/2})+leg([['#c792ea','Weekly average'],['#6b5a80','Weigh-ins'],['#8b9aab','Dashed: 0.4 kg/week target']])}
+function pOverview(){const ss=strengthStatus(),cs=cardioStatus(),wk=wWeeks(),cw=wk[wk.length-1],wt=cw?interp(wTgt(),cw.w-.5):null;
+ const card=(cls,t,pl,kpi,c)=>`<div class="card"><div class="row between"><h2 class="${cls}">${t}</h2>${pl}</div><div class="sub sm" style="margin-bottom:6px">${kpi}</div>${c}</div>`;
+ return `<h1>Overview</h1><div class="sub">Actual against target, 2 weeks back to 2 weeks ahead. Swipe a chart for other weeks.</div>
+ ${card('run','5k time',cs.est?pill(cs.on,cs.on?'On track':'Behind'):pill(null,'No data'),`Est. ${cs.est?mmss(cs.est.v):'-'} · target now ${mmss(cs.t)}`,c5k())}
+ ${card('run','Total time at 4:00/km',cs.h?pill(cs.hOn,cs.hOn?'On track':'Behind'):pill(null,'No data'),`Best session ${cs.h?mmss(cs.h.v):'-'} · target now ${mmss(cs.ht)} · ${cs.n14} runs in 14 days`,cHold())}
+ ${card('lift','Bench 10-rep max',ss.est?pill(ss.on,ss.on?'On track':'Behind'):pill(null,'No data'),`Est. ${ss.est?kg(ss.est.v):'-'} kg · target now ${kg(ss.t10)} kg`,cBench())}
+ ${card('wt','Weight',cw?pill(cw.avg<=wt+.5,cw.avg<=wt+.5?'On track':'Behind'):pill(null,'No data'),`Week average ${cw?kg(cw.avg):'-'} kg · target ${wt!=null?kg(wt):'-'} kg`,cWeight())}`}
+
 /* ---------- nav ---------- */
-const TABS=[['today','◉','Today'],['strength','▮▮','Strength'],['cardio','➤','Cardio'],['weight','⚖','Weight'],['more','⋯','More']];
+const TABS=[['today','◉','Today'],['overview','▤','Overview'],['strength','▮▮','Strength'],['cardio','➤','Cardio'],['weight','⚖','Weight'],['more','⋯','More']];
 let tab=(location.hash||'#today').slice(1);if(!TABS.some(t=>t[0]===tab))tab='today';if(S.active&&tab==='today')tab='strength';
 function go(t){tab=t;PBACK=0;history.replaceState(null,'','#'+t);render();scrollTo(0,0)}
 function render(){$('nav').innerHTML=TABS.map(([k,i,n])=>`<button class="${tab===k?'on':''}" onclick="go('${k}')"><i>${i}</i>${n}</button>`).join('');
- $('app').innerHTML=({today:pToday,strength:pStrength,cardio:pCardio,weight:pWeight,more:pMore})[tab]();chartScroll();tick()}
+ $('app').innerHTML=({today:pToday,overview:pOverview,strength:pStrength,cardio:pCardio,weight:pWeight,more:pMore})[tab]();chartScroll();tick()}
 
 /* ---------- Today ---------- */
 function pToday(){const wk=weekOf(today()),w=curWeek(),pre=wk<1,mon=addD(S.settings.start,(w-1)*7),dn=weekDone(w),td=today();
@@ -316,8 +334,7 @@ function pStrength(){if(S.active)return pSession();
  <div class="card"><div class="row between"><h2>Status</h2>${ss.est?pill(ss.on,ss.on?'On track':'Behind target'):''}</div>
  <div class="kpi"><div><div class="sub sm">Est. 10-rep max (6 wks)</div><div class="big">${ss.est?kg(ss.est.v):'-'}</div><div class="sub sm">Target now ${kg(ss.t10)} kg${(b=>b?' · est. 1RM '+kg(r25(b.v))+' kg':'')(best1RM())}</div></div>
  <div><div class="sub sm">Next top set</div><div class="big">${kg(bp.w)}</div><div class="sub sm">Target now ${kg(r25(ss.tw))} kg</div></div></div>
- ${chart({series:[{pts:T10(),c:'#4ea1ff',dash:1},{pts:est,c:'#4ea1ff',dots:1},{pts:work,c:'#e8eef4',dots:1}],y0:75,y1:105,ticks:3})}
- ${leg([['#4ea1ff','Est. 10RM'],['#e8eef4','Top set'],['#4ea1ff','Dashed: target']])}</div>
+ ${cBench()}</div>
  <div class="card"><h2>Next: Chest ${nextT}${isTest(w)?' (test week)':''}</h2>
  <ul>${layout(nextT,w).map(([e,n,h])=>`<li><b>${EX[e].n}</b> ${n} set${n>1?'s':''}: ${e==='bench'?(isTest(w)&&nextT==='A'?'test set':nextT==='A'?kg(bp.w)+' / '+kg(boW(bp.w))+' / '+kg(boW(bp.w))+' kg':'max reps at '+MAXW+' / '+kg(BBW)+' / '+kg(BBW)+' kg'):(a=>a.ws[0]===''?'weight of your choice':a.ws.map(kg).join(' / ')+' kg (same as last time)')(accPred(e,n))}<div class="sub sm">${esc(h)}</div></li>`).join('')}</ul>
  <div class="row"><button class="btn p grow" onclick="startSession('A')">Start Chest A</button><button class="btn grow" onclick="startSession('B')">Start Chest B</button></div>
@@ -401,14 +418,12 @@ function pCardio(){if(!F)newRunForm();const inx=intNext(),cs=cardioStatus(),nt=n
  <div class="card"><div class="row between"><h2>5k time</h2>${cs.est?pill(cs.on,cs.on?'On track':'Behind target'):''}</div>
  <div class="kpi"><div><div class="sub sm">Est. 5k (best, 6 wks)</div><div class="big">${cs.est?mmss(cs.est.v):'-'}</div><div class="sub sm">Target now ${mmss(cs.t)}</div></div>
  <div><div class="sub sm">Next 5k test</div><div class="big" style="font-size:20px">${nt?fmtD(nt):'-'}</div><div class="sub sm">${nt?'Target '+mmss(interp(T5K(),xOf(nt))):''}</div></div></div>
- ${chart({series:[{pts:T5K(),c:'#3ecf8e',dash:1},{pts:est,c:'#3ecf8e',dots:1},{pts:tests,c:'#ffb454',dots:1}],y0:1620,y1:1140,fmt:mmss,ticks:4})}
- ${leg([['#3ecf8e','5k estimate from runs of 3 km or more'],['#ffb454','5k tests'],['#8b9aab','Dashed: target']])}</div>
- <div class="card"><div class="row between"><h2>Time at 4:00/km</h2>${cs.h?pill(cs.hOn,cs.hOn?'On track':'Behind target'):''}</div>
- <div class="kpi"><div><div class="sub sm">Longest held (6 wks)</div><div class="big">${cs.h?mmss(cs.h.v):'-'}</div><div class="sub sm">Target now ${mmss(cs.ht)}</div></div>
+ ${c5k()}</div>
+ <div class="card"><div class="row between"><h2>Total time at 4:00/km</h2>${cs.h?pill(cs.hOn,cs.hOn?'On track':'Behind target'):''}</div>
+ <div class="kpi"><div><div class="sub sm">Best session (6 wks)</div><div class="big">${cs.h?mmss(cs.h.v):'-'}</div><div class="sub sm">Target now ${mmss(cs.ht)}</div></div>
  <div><div class="sub sm">Next intervals</div><div class="big" style="font-size:18px">${STEPS[inx.s].t}</div><div class="sub sm">${STEPS[inx.s].rest} · ${inx.why}</div></div></div>
- ${chart({series:[{pts:THOLD().map(([x,y])=>[x,y/60]),c:'#ffb454',dash:1},{pts:hold,c:'#ffb454',dots:1}],y0:0,y1:20,fmt:v=>v+' min',ticks:4})}
- ${leg([['#ffb454','Longest stretch at 4:00/km or faster'],['#8b9aab','Dashed: target, 20:00 = sub-20 5k']])}
- <div class="sub sm" style="margin-top:6px">Counts the longest rep where you held 4:00/km (treadmill 15.0 km/h), or a whole run at that pace. Rating 7 or lower with pace held is the next step, 8-9 repeats, 10 or pace missed is a step back.</div></div>
+ ${cHold()}
+ <div class="sub sm" style="margin-top:6px">Total per session: reps at 4:00/km × rep time (treadmill 15.0 km/h), so 4 × 2:00 = 8:00. A whole run at that pace counts too. Rating 7 or lower with pace held is the next step, 8-9 repeats, 10 or pace missed is a step back.</div></div>
  <div class="card"><div class="row between"><h2>Log a run</h2><div class="row"><label class="btn s r" style="margin:0;color:#06121f">Screenshot<input type="file" accept="image/*" multiple style="display:none" onchange="shotImport(this)"></label><button class="btn s" onclick="importClip()">Paste</button></div></div>
  ${OCR?`<div class="card" style="background:var(--card2)">${OCR.busy?`<div class="sub sm" id="ocrmsg">${esc(OCR.msg)}</div>`:OCR.err?`<div class="bad sm">Could not read the screenshot: ${esc(OCR.err)}</div>`:
   `<div class="sm ${OCR.ok?'ok':'warn'}">${OCR.ok?'Filled in from the screenshot. Check the numbers before saving.':'Could not find distance, time or splits. Try the Workout Details or Splits screen.'}</div>
@@ -422,7 +437,7 @@ function pCardio(){if(!F)newRunForm();const inx=intNext(),cs=cardioStatus(),nt=n
  <label>Date</label><input type="date" value="${F.date}" onchange="rf('date',this.value)">
  ${F.kind==='interval'?`<label>Session (suggested: ${STEPS[inx.s].t})</label><select onchange="rf('step',this.value)">${STEPS.map((s,i)=>`<option value="${i}" ${+F.step===i?'selected':''}>${s.t}, ${s.rest}</option>`).join('')}</select>
   <div class="row"><div class="grow"><label>Rep length (m or mm:ss)</label><input inputmode="text" value="${esc(F.rep)}" placeholder="${STEPS[+F.step].d}" oninput="rf('rep',this.value)"></div>
-  <div class="grow"><label>Reps done</label><input inputmode="numeric" value="${F.reps}" placeholder="${STEPS[+F.step].n}" oninput="rf('reps',this.value)"></div></div>
+  <div class="grow"><label>Reps at 4:00/km</label><input inputmode="numeric" value="${F.reps}" placeholder="${STEPS[+F.step].n}" oninput="rf('reps',this.value)"></div></div>
   <label>Held 4:00/km on every rep?</label><div class="seg"><button class="${F.held?'on':''}" onclick="rf('held',true)">Yes</button><button class="${!F.held?'on':''}" onclick="rf('held',false)">No</button></div>
   <div class="sub sm" style="margin-top:6px">Leave rep length empty to use the session's. Distance and time are optional here: totals include the walking.</div>`:''}
  <div class="row"><div class="grow"><label>Distance (km)</label><input inputmode="decimal" value="${F.km??''}" oninput="rf('km',this.value)"></div>
@@ -454,7 +469,7 @@ function pWeight(){const k=kcal(),ws=wAsc(),sw=+S.settings.startWeight,gw=+S.set
  <div class="card">${protW()}<div class="sub sm" style="margin-top:8px">Last 7 days: ${[6,5,4,3,2,1,0].map(i=>{const d=addD(today(),-i);return`${day(d).toLocaleDateString('en-GB',{weekday:'short'})} ${pDay(d).length}${S.creatine?.[d]?'+C':''}`}).join(' · ')}</div>${crStart()?`<div class="sub sm">Creatine: ${[...Array(7)].filter((_,i)=>S.creatine?.[addD(today(),-i)]).length} of the last 7 days (+C). Started ${fmtD(crStart())}.</div>`:''}</div>
  <div class="card"><h2>Weigh-in</h2><div class="sub sm">As often as you like, in the morning before eating. Calories adjust each Monday on the weekly average, so daily swings don't matter.${cw?` This week: <b>${kg(+cw.avg.toFixed(1))} kg</b> average of ${cw.n}.`:''}</div>
  <div class="row" style="margin-top:8px"><input id="wd" type="date" value="${today()}" style="flex:1.2"><input id="wk" inputmode="decimal" placeholder="kg" style="flex:1"><button class="btn w" onclick="saveW()">Save</button></div></div>
- <div class="card"><h2>Trend</h2>${chart({series:[{pts:tgt,c:'#c792ea',dash:1},{pts,c:'#6b5a80',dots:1},{pts:avg,c:'#c792ea',dots:1}],y0:lo,y1:hi,ticks:(hi-lo)/2})}${leg([['#c792ea','Weekly average'],['#6b5a80','Weigh-ins'],['#8b9aab','Dashed: 0.4 kg/week target']])}
+ <div class="card"><h2>Trend</h2>${cWeight()}
  ${ws.slice().reverse().map(x=>`<div class="it row between"><span>${fmtD(x.date)}</span><span><b>${kg(x.kg)} kg</b><button class="x" onclick="delW('${x.date}')">✕</button></span></div>`).join('')}</div>
  <div class="card"><h2>Rules of thumb</h2><ul>
  <li>About ${S.settings.proteinPortions} protein portions a day, shakes included. One portion is roughly 25-35 g: a palm-sized piece of meat or fish, 250 g skyr or quark, 3-4 eggs, or a shake.</li>
@@ -499,9 +514,9 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <li>No triceps isolation unless the lockout stalls.</li><li>Move sessions on the Today screen. Keep at least 2 days between Chest A and B, and a day between the steady run and intervals.</li></ul>
  <h3 class="run">Running · any day, 1 to 4 times a week</h3><ul>
  <li>No fixed run days. Tap Run, Intervals or 5k test on the Cardio tab and add a screenshot or fill it in.</li>
- <li>Two things are tracked: your 5k time (estimated from any run of 3 km or more, plus the tests) and the longest time you can hold 4:00/km. Sub-20 means holding 4:00/km for 20 minutes.</li>
+ <li>Two things are tracked: your 5k time (estimated from any run of 3 km or more, plus the tests) and the total time per session at 4:00/km or faster, e.g. 4 × 2:00 = 8:00.</li>
  <li>5k targets, a straight line from 24:30 on 10 Nov to 20:00 on 3 Mar: 23:18 on 10 Dec, 22:04 on 10 Jan, 20:50 on 10 Feb.</li>
- <li>Time at 4:00/km targets, a straight line from 2:00 on 10 Nov to 20:00 on 3 Mar.</li>
+ <li>Total time at 4:00/km targets, a straight line from 8:00 on 10 Nov to 24:00 on 3 Mar (about 120% of race distance at race pace).</li>
  <li>Intervals on the treadmill at 15.0 km/h, 1% incline, from 4 × 500 m upward. The app suggests the next session from your last one.</li>
  <li>Other runs: easy by heart rate (155-165), cadence 160-165.</li>
  <li>Log runs from a Fitness app screenshot (Workout Details and Splits). The text is read on the phone, nothing is uploaded.</li>
