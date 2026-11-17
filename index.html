@@ -117,6 +117,7 @@ const est10=(g,s)=>{const rt=rateOf(g,'bench'),rir=isMain(s)&&rt?Math.max(0,Math
 const e1=(w,r,rpe)=>{const rir=rpe?Math.max(0,Math.min(4,10-rpe)):0;return w*(1+Math.min(15,r+rir)/30)};
 function oneRM(sets,rpe){const t=sets.find(s=>isMain(s)&&s.w>0&&s.r>0);if(t)return{v:e1(t.w,t.r,rpe),s:t,rpe};
  let b=null;sets.filter(s=>s.k!=='wu'&&s.w>0&&s.r>0&&s.r<=15).forEach(s=>{const v=e1(s.w,s.r);if(!b||v>b.v)b={v,s}});return b}
+const req1=t10=>t10*(1+10/30);
 function best1RM(days=42){const from=addD(today(),-days);let b=null;S.gym.forEach(g=>{if(g.date<from)return;const o=oneRM(setsOf(g,'bench').map(x=>x),rateOf(g,'bench'));if(o&&(!b||o.v>b.v))b={...o,date:g.date}});return b}
 const boW=t=>r25(t*.9),wu2W=t=>Math.max(Math.min(60,r25(t*.8)),r25(t*.75));
 const MAXW=100,BBW=r25(MAXW*.8);
@@ -326,7 +327,7 @@ function pSession(){const a=S.active,w=weekOf(a.date),tw=r25(interp(T10(),Math.m
   ${idx.map(k=>{const s=a.sets[k],lb=s.k?SL[s.k]:++n;return`<div class="set ${s.done?'done':''} ${s.k||''}" data-k="${k}"><span class="n">${lb}</span>
    ${wSel(k,s)}
    <input class="r" inputmode="numeric" value="${s.r}" placeholder="${s.hint.match(/\d+(-\d+)?/)?.[0]||''}" onchange="setF(${k},'r',this.value)">
-   <button class="btn" onclick="doneSet(${k})">${s.done?'✓':'Done'}</button></div>`}).join('')}${exRate(ex,a.rate[ex])}${ex==='bench'?(o=>o?`<div class="row between" style="margin-top:10px"><span class="sub sm">Est. 1RM from ${kg(o.s.w)} × ${o.s.r}${o.rpe?' @ RPE '+o.rpe:''}${!o.rpe&&(o.s.k==='top'||o.s.k==='test')?' (rate RPE to refine)':''}</span><b class="lift">${kg(r25(o.v))} kg</b></div>`:'')(oneRM(idx.map(k=>a.sets[k]).filter(s=>s.done),a.rate.bench)):''}</div>`});
+   <button class="btn" onclick="doneSet(${k})">${s.done?'✓':'Done'}</button></div>`}).join('')}${exRate(ex,a.rate[ex])}${ex==='bench'?(o=>o?`<div class="row between" style="margin-top:10px"><span class="sub sm">Est. 1RM from ${kg(o.s.w)} × ${o.s.r}${o.rpe?' @ RPE '+o.rpe:''}${!o.rpe&&(o.s.k==='top'||o.s.k==='test')?' (rate RPE to refine)':''}</span><b class="lift">${kg(r25(o.v))} kg</b></div><div class="sub sm" style="text-align:right">Needed now ${Math.round(req1(interp(T10(),Math.max(0,xOf(a.date)))))} kg · for 100 × 10: ${Math.round(req1(100))} kg</div>`:'')(oneRM(idx.map(k=>a.sets[k]).filter(s=>s.done),a.rate.bench)):''}</div>`});
  return `<h1>Chest ${a.type}${a.test?' · test week':''}</h1><div class="sub">Week ${w} · ${fmtD(a.date)}${a.test&&a.type==='A'?' · test set is all-out':''}</div>${h}
  <div class="card"><label>Note</label><textarea id="anote" placeholder="Back, shoulder, anything worth noting">${esc(a.note)}</textarea>
  <button class="btn p full" onclick="finishSession()">Finish and save</button><button class="btn full" onclick="discardSession()">Discard</button></div>`}
@@ -337,8 +338,10 @@ function pStrength(){if(S.active)return pSession();
  const byWeek=w=>{const g=S.gym.filter(x=>weekOf(x.date)===w);const b=g.flatMap(x=>setsOf(x,'bench'));return b.length?Math.max(...g.flatMap(x=>setsOf(x,'bench').map(s=>est10(x,s)))):null};
  return `<h1>Strength</h1><div class="sub">Goal: bench 100 kg × 10 by 3 March</div>
  <div class="card"><div class="row between"><h2>Status</h2>${ss.est?pill(ss.on,ss.on?'On track':'Behind target'):''}</div>
- <div class="kpi"><div><div class="sub sm">Est. 10-rep max (6 wks)</div><div class="big">${ss.est?kg(ss.est.v):'-'}</div><div class="sub sm">Target now ${kg(ss.t10)} kg${(b=>b?' · est. 1RM '+kg(r25(b.v))+' kg':'')(best1RM())}</div></div>
- <div><div class="sub sm">Next top set</div><div class="big">${kg(bp.w)}</div><div class="sub sm">Target now ${kg(r25(ss.tw))} kg</div></div></div>
+ <div class="kpi"><div><div class="sub sm">Est. 10-rep max (6 wks)</div><div class="big">${ss.est?kg(ss.est.v):'-'}</div><div class="sub sm">Target now ${kg(ss.t10)} kg</div></div>
+ <div><div class="sub sm">Next top set</div><div class="big">${kg(bp.w)}</div><div class="sub sm">Target now ${kg(r25(ss.tw))} kg</div></div>
+ <div><div class="sub sm">Est. 1RM (6 wks)</div><div class="big">${(b=>b?kg(r25(b.v)):'-')(best1RM())}</div><div class="sub sm">Needed now ${Math.round(req1(ss.t10))} kg</div></div>
+ <div><div class="sub sm">1RM needed for 100 × 10</div><div class="big">${Math.round(req1(100))}</div><div class="sub sm">Same formula, 10 reps at RPE 10</div></div></div>
  ${cBench()}</div>
  <div class="card"><h2>Next: Chest ${nextT}${isTest(w)?' (test week)':''}</h2>
  <ul>${layout(nextT,w).map(([e,n,h])=>`<li><b>${EX[e].n}</b> ${n} set${n>1?'s':''}: ${e==='bench'?(isTest(w)&&nextT==='A'?'test set':nextT==='A'?kg(bp.w)+' / '+kg(boW(bp.w))+' / '+kg(boW(bp.w))+' kg':'max reps at '+MAXW+' / '+kg(BBW)+' / '+kg(BBW)+' kg'):(a=>a.ws[0]===''?'weight of your choice':a.ws.map(kg).join(' / ')+' kg (same as last time)')(accPred(e,n))}<div class="sub sm">${esc(h)}</div></li>`).join('')}</ul>
@@ -512,7 +515,7 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <li>Chest B: bench warm-up plus 80 × 2, then 1 set of max reps at 100 kg, stopping with 1 rep left (RPE 9), then 2 back-off sets × 8-10 at 80 kg (RPE 7-8). Fly 3 × 12-15, machine press 3 × 10-15.</li>
  <li>Stop 1-2 reps before failure. Fly and machine: weights are copied from your last session, without progression, because machines differ between gyms. Only bench counts for progression and strength.</li>
  <li>Bench: top set 10+ reps at RPE 9 or easier means +2.5 kg next time. Top set under 8 or rated 10, twice in a row, means −5%.</li>
- <li>Est. 1RM per session: top set weight × (1 + (reps + reps left) / 30), with reps left = 10 − RPE.</li>
+ <li>Est. 1RM per session: top set weight × (1 + (reps + reps left) / 30), with reps left = 10 − RPE. With the same formula, 100 × 10 needs a 1RM of about 133 kg.</li>
  <li>Rate effort (RPE) per exercise. Bench: rate the top set.</li>
  <li>10-rep max targets, a straight line from 90 kg on 10 Nov to 100 kg on 3 Mar: 92.6 on 10 Dec, 95.4 on 10 Jan, 98.1 on 10 Feb. Top set target is 95% of this.</li>
  <li>Test weeks (10 Dec, 10 Jan, 10 Feb, 3 Mar): Chest A is an all-out 10-rep set, Chest B is easy at half the sets, without the 100 kg set.</li>
