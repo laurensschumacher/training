@@ -35,7 +35,7 @@ tr.cur td{background:#22303f}tr.test td:first-child{color:var(--warn);font-weigh
 .set{display:grid;grid-template-columns:32px 1fr 64px 56px;gap:6px;align-items:center;margin:6px 0}
 .stp{display:grid;grid-template-columns:38px 1fr 38px;gap:4px}.stp .btn{padding:9px 0;font-size:18px;line-height:1}.stp select{text-align:center;text-align-last:center;padding:9px 2px;-webkit-appearance:none;appearance:none}
 .set.wu .n{font-style:italic}.set.top .n{color:var(--lift);font-weight:700}.set.done select{border-color:var(--ok);color:var(--mut)}
-.set .n{color:var(--mut);font-size:12px;text-align:center}.set.done input{border-color:var(--ok);color:var(--mut)}
+.lw{margin:-4px 0 4px 38px;font-size:11px;color:var(--mut)}.set .n{color:var(--mut);font-size:12px;text-align:center}.set.done input{border-color:var(--ok);color:var(--mut)}
 .set .btn{padding:9px 0}.set.done .btn{background:var(--ok);border-color:var(--ok);color:#06121f}
 .rate{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}.rate button{padding:10px 0;border-radius:8px;border:1px solid var(--line);background:var(--card2);color:var(--tx);font-size:15px;font-family:inherit}.rate button.on{background:var(--tx);color:var(--bg)}
 #timer{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 64px);background:#1d2c3e;border:1px solid var(--lift);border-radius:14px;padding:10px 12px;display:none;align-items:center;gap:8px;z-index:7;max-width:620px;margin:0 auto}
@@ -293,6 +293,13 @@ function startSession(type){const w=curWeek(),test=isTest(w),sets=[],why={},desc
    else{sets.push({ex,k:'wu',w:80,r:2,hint:'2'},{ex,k:'max',w:MAXW,r:'',hint:'max'},{ex,k:'bo',w:BBW,r:'',hint:'8-10'},{ex,k:'bo',w:BBW,r:'',hint:'8-10'});why.bench=maxWhy()}}
   else{const a=accPred(ex,n);why[ex]=a.why;a.ws.forEach(v=>sets.push({ex,w:v,r:'',hint}))}});
  sets.forEach(s=>{s.done=false;s.i=sets.filter(x=>x.ex===s.ex).indexOf(s)});
+ const pg=gymDesc().find(g=>g.type===type&&!!g.test===test);
+ if(pg){const used=new Set();sets.forEach(s=>{if(s.k==='wu')return;
+  const c=pg.sets.filter(x=>x.ex===s.ex&&x.k!=='wu'&&(x.k||'')===(s.k||'')&&x.w>0&&x.r>0&&!used.has(x)),m=c.find(x=>x.i===s.i)||c[0];
+  if(!m)return;used.add(m);s.last={w:m.w,r:m.r};s.w=m.w});
+  const L=ex=>{const l=sets.filter(x=>x.ex===ex&&x.last);return l.length?`Last ${fmtD(pg.date)}: ${l.map(x=>kg(x.last.w)+' × '+x.last.r).join(', ')}${rateOf(pg,ex)?' @ RPE '+rateOf(pg,ex):''}. Beat it by 1 rep or one weight step.`:''};
+  Object.keys(desc).forEach(ex=>{const t=L(ex);if(!t)return;why[ex]=ex==='bench'&&type==='A'&&!test?t+' Suggestion: '+benchPred().why+'.':t});
+  sets.filter(s=>s.ex==='bench'&&s.k==='wu'&&s.r===4&&type==='A').forEach(s=>{const t=sets.find(x=>x.ex==='bench'&&(x.k==='top'||x.k==='test'));if(t)s.w=wu2W(t.w)})}
  S.active={id:uid(),type,date:today(),test,ts:Date.now(),sets,why,desc,rate:{},note:''};save();unlockAudio();go('strength')}
 const stepOf=ex=>ex==='bench'?2.5:+S.settings[ex+'Step']||2.5;
 function follow(k){const a=S.active,s=a.sets[k];if(s.ex!=='bench'){a.sets.forEach(x=>{if(x.ex===s.ex&&!x.done&&x.i>s.i&&!(+x.w>0))x.w=s.w});return}if(s.k!=='top'&&s.k!=='test')return;
@@ -303,7 +310,7 @@ function setF(k,f,v){S.active.sets[k][f]=v===''?'':+String(v).replace(',','.');s
 function doneSet(k){const s=S.active.sets[k];
  if(s.done){s.done=false;save();render();return}
  const row=document.querySelector(`[data-k="${k}"]`),r=row.querySelector('.r').value;
- s.r=+r;if(!(s.r>0)){row.querySelector('.r').focus();return}
+ s.r=+(r||s.last?.r||0);if(!(s.r>0)){row.querySelector('.r').focus();return}
  s.done=true;save();const more=S.active.sets.some(x=>!x.done);if(more)startTimer(s.k==='wu'?+S.settings.restWarm||60:+S.settings[EX[s.ex].rest]);render()}
 function aRate(ex,i){S.active.rate=S.active.rate||{};S.active.rate[ex]=i;save();render()}
 function finishSession(){const a=S.active,done=a.sets.filter(s=>s.done&&s.w>0&&s.r>0);
@@ -326,8 +333,8 @@ function pSession(){const a=S.active,w=weekOf(a.date),tw=r25(interp(T10(),Math.m
   <div class="set sub sm" style="margin-top:8px"><span></span><span style="text-align:center">kg</span><span>reps</span><span></span></div>
   ${idx.map(k=>{const s=a.sets[k],lb=s.k?SL[s.k]:++n;return`<div class="set ${s.done?'done':''} ${s.k||''}" data-k="${k}"><span class="n">${lb}</span>
    ${wSel(k,s)}
-   <input class="r" inputmode="numeric" value="${s.r}" placeholder="${s.hint.match(/\d+(-\d+)?/)?.[0]||''}" onchange="setF(${k},'r',this.value)">
-   <button class="btn" onclick="doneSet(${k})">${s.done?'✓':'Done'}</button></div>`}).join('')}${exRate(ex,a.rate[ex])}${ex==='bench'?(o=>o?`<div class="row between" style="margin-top:10px"><span class="sub sm">Est. 1RM from ${kg(o.s.w)} × ${o.s.r}${o.rpe?' @ RPE '+o.rpe:''}${!o.rpe&&(o.s.k==='top'||o.s.k==='test')?' (rate RPE to refine)':''}</span><b class="lift">${kg(r25(o.v))} kg</b></div><div class="sub sm" style="text-align:right">Needed now ${Math.round(req1(interp(T10(),Math.max(0,xOf(a.date)))))} kg · for 100 × 10: ${Math.round(req1(100))} kg</div>`:'')(oneRM(idx.map(k=>a.sets[k]).filter(s=>s.done),a.rate.bench)):''}</div>`});
+   <input class="r" inputmode="numeric" value="${s.r}" placeholder="${s.last?s.last.r:s.hint.match(/\d+(-\d+)?/)?.[0]||''}" onchange="setF(${k},'r',this.value)">
+   <button class="btn" onclick="doneSet(${k})">${s.done?'✓':'Done'}</button></div>${s.last&&!s.done?`<div class="lw">last week ${kg(s.last.w)} × ${s.last.r}</div>`:''}`}).join('')}${exRate(ex,a.rate[ex])}${ex==='bench'?(o=>o?`<div class="row between" style="margin-top:10px"><span class="sub sm">Est. 1RM from ${kg(o.s.w)} × ${o.s.r}${o.rpe?' @ RPE '+o.rpe:''}${!o.rpe&&(o.s.k==='top'||o.s.k==='test')?' (rate RPE to refine)':''}</span><b class="lift">${kg(r25(o.v))} kg</b></div><div class="sub sm" style="text-align:right">Needed now ${Math.round(req1(interp(T10(),Math.max(0,xOf(a.date)))))} kg · for 100 × 10: ${Math.round(req1(100))} kg</div>`:'')(oneRM(idx.map(k=>a.sets[k]).filter(s=>s.done),a.rate.bench)):''}</div>`});
  return `<h1>Chest ${a.type}${a.test?' · test week':''}</h1><div class="sub">Week ${w} · ${fmtD(a.date)}${a.test&&a.type==='A'?' · test set is all-out':''}</div>${h}
  <div class="card"><label>Note</label><textarea id="anote" placeholder="Back, shoulder, anything worth noting">${esc(a.note)}</textarea>
  <button class="btn p full" onclick="finishSession()">Finish and save</button><button class="btn full" onclick="discardSession()">Discard</button></div>`}
@@ -513,7 +520,7 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  <li>Bench warm-up: 20 × 10, 60 × 4 (about 75% of the top set once it passes 80 kg).</li>
  <li>Chest A: bench top set 1 × 8-10 at RPE 8-9, then 2 back-off sets × 10-12 at 90% (RPE 7-8). Fly 2 × 12-15, machine press 2 × 12-15.</li>
  <li>Chest B: bench warm-up plus 80 × 2, then 1 set of max reps at 100 kg, stopping with 1 rep left (RPE 9), then 2 back-off sets × 8-10 at 80 kg (RPE 7-8). Fly 3 × 12-15, machine press 3 × 10-15.</li>
- <li>Stop 1-2 reps before failure. Fly and machine: weights are copied from your last session, without progression, because machines differ between gyms. Only bench counts for progression and strength.</li>
+ <li>Each set starts at what you did in the same session type last time (Chest A from Chest A, B from B): weight filled in, last reps shown in grey. Beat it by 1 rep or one weight step. Tapping Done with reps empty logs last time's reps. Stop 1-2 reps before failure. Only bench counts for progression and strength.</li>
  <li>Bench: top set 10+ reps at RPE 9 or easier means +2.5 kg next time. Top set under 8 or rated 10, twice in a row, means −5%.</li>
  <li>Est. 1RM per session: top set weight × (1 + (reps + reps left) / 30), with reps left = 10 − RPE. With the same formula, 100 × 10 needs a 1RM of about 133 kg.</li>
  <li>Rate effort (RPE) per exercise. Bench: rate the top set.</li>
