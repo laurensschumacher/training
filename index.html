@@ -67,7 +67,23 @@ const KEY='tracker-v2';
 const DEF={settings:{start:'2026-11-09',topStart:80,restWarm:60,flyStep:2.5,machineStep:5,restBench:150,restFly:60,restMachine:90,kcalStart:2650,startWeight:102,goalWeight:94,proteinPortions:6,proteinG:30},gym:[],runs:[],weights:[],protein:{},creatine:{},moves:{},active:null,timer:null};
 let S=load();if(!S.mig102){if(+S.settings.startWeight===100)S.settings.startWeight=102;S.mig102=1;localStorage.setItem(KEY,JSON.stringify(S))}
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s)return{...JSON.parse(JSON.stringify(DEF)),...s,settings:{...DEF.settings,...s.settings}}}catch(e){}return JSON.parse(JSON.stringify(DEF))}
-function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+function save(){localStorage.setItem(KEY,JSON.stringify(S));localStorage.setItem('syncDirty','1');schedSync()}
+/* ---------- GitHub sync (private repo; token stays on this phone, never in the data) ---------- */
+const SYNC_URL='https://api.github.com/repos/laurensschumacher/training-data/contents/data.json';
+let syncT=null,syncBusy=false,syncMsg='';
+const syncTok=()=>localStorage.getItem('syncTok')||'';
+function schedSync(ms=60000){if(!syncTok())return;clearTimeout(syncT);syncT=setTimeout(()=>syncNow(),ms)}
+async function syncNow(manual){const tok=syncTok();if(!tok||syncBusy)return;if(!manual&&localStorage.getItem('syncDirty')!=='1')return;
+ syncBusy=true;clearTimeout(syncT);const H={Authorization:'Bearer '+tok,Accept:'application/vnd.github+json'};
+ try{let sha;const g=await fetch(SYNC_URL+'?t='+Date.now(),{headers:H,cache:'no-store'});
+  if(g.ok)sha=(await g.json()).sha;else if(g.status!==404)throw new Error('read '+g.status);
+  const body=JSON.stringify({...S,syncedAt:new Date().toISOString()},null,1);
+  const p=await fetch(SYNC_URL,{method:'PUT',headers:H,body:JSON.stringify({message:'Sync '+new Date().toISOString().slice(0,16).replace('T',' '),content:btoa(unescape(encodeURIComponent(body))),...(sha?{sha}:{})})});
+  if(!p.ok)throw new Error('write '+p.status);
+  localStorage.setItem('syncDirty','0');localStorage.setItem('syncAt',new Date().toISOString());syncMsg=''}
+ catch(e){syncMsg='Sync failed ('+e.message+'). '+(/40[13]/.test(e.message)?'Check the token.':'Will retry.');schedSync(300000)}
+ syncBusy=false;if(manual&&typeof render==='function')render()}
+function saveTok(){const v=$('stok').value.trim();if(v)localStorage.setItem('syncTok',v);else localStorage.removeItem('syncTok');localStorage.setItem('syncDirty','1');syncNow(true)}
 
 /* ---------- utils ---------- */
 const $=id=>document.getElementById(id);
@@ -212,7 +228,7 @@ function tick(){const el=$('timer');if(!S.timer){el.style.display='none';return}
  if(rem<=0){el.classList.add('go');$('tm').textContent='Go';if(!S.timer.beeped){S.timer.beeped=true;save();beep()}if(rem<-90)stopTimer()}
  else{el.classList.remove('go');$('tm').textContent=mmss(Math.ceil(rem))}}
 setInterval(tick,250);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){tick();if(S.timer)wake()}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)syncNow();else{tick();if(S.timer)wake();syncNow()}});setTimeout(()=>syncNow(),3000);
 
 /* ---------- chart ---------- */
 function chart({series,y0,y1,fmt=v=>v,ticks=4}){const H=170,L=38,T=8,B=20,ih=H-T-B,WK=422/5,x0=-.4,x1=xEnd()+.6,Wt=(x1-x0)*WK;
@@ -512,6 +528,9 @@ function pMore(){const n=S.gym.length+S.runs.length+S.weights.length;
  return `<h1>More</h1>
  <div class="card"><h2>Backup</h2><div class="sub sm">Data lives only on this phone. Export now and then (Save to Files). ${n} entries stored.</div>
  <div class="row" style="margin-top:8px"><button class="btn grow" onclick="exportData()">Export backup</button><label class="btn grow" style="margin:0;text-align:center;color:var(--tx);font-size:15px">Restore<input type="file" accept="application/json,.json" style="display:none" onchange="importData(this)"></label></div></div>
+ <div class="card"><h2>Sync to GitHub</h2><div class="sub sm">Copies all data to the private repo laurensschumacher/training-data, about a minute after each change and when you close the app. ${syncTok()?(localStorage.getItem('syncAt')?'Last sync '+new Date(localStorage.getItem('syncAt')).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'.':'Not synced yet.')+(localStorage.getItem('syncDirty')==='1'?' Changes waiting.':''):'Off: paste a token to turn it on.'}</div>${syncMsg?`<div class="warn sm">${esc(syncMsg)}</div>`:''}
+ <input id="stok" type="password" autocomplete="off" placeholder="GitHub token (github_pat_…)" value="${esc(syncTok())}" style="margin-top:8px">
+ <div class="row" style="margin-top:8px"><button class="btn grow" onclick="saveTok()">Save token</button><button class="btn grow" onclick="syncNow(true)" ${syncTok()?'':'disabled'}>Sync now</button></div></div>
  <div class="card"><h2>Apple Watch import</h2><div class="sub sm">Not tested on a phone yet. If a step does not exist on your iOS version, enter runs by hand.</div><ol style="padding-left:20px;font-size:14px">
  <li>Shortcuts app, new shortcut, name it "Runs to tracker".</li>
  <li>Add <b>Find Health Samples</b>: type <b>Workouts</b>, filter workout type Running, start date in the last 7 days, sort latest first, limit 5.</li>
